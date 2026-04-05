@@ -25,6 +25,9 @@ export default function PriceCalculator({
   const [weight, setWeight] = useState("");
   const [currency, setCurrency] = useState("INR");
 
+  // ── Custom Purity state ────────────────────────────
+  const [customKarat, setCustomKarat] = useState("");
+
   // ── Manual price entry state ──────────────────────
   const [isManual, setIsManual] = useState(false);
   const [manualPrice, setManualPrice] = useState("");
@@ -36,6 +39,7 @@ export default function PriceCalculator({
   // Reset purity index when switching metals
   useEffect(() => {
     setSelectedPurity(0);
+    setCustomKarat("");
   }, [activeTab]);
 
   // ── Manual price validation ─────────────────────
@@ -82,16 +86,38 @@ export default function PriceCalculator({
     return "api";
   }, [isManual, validManualPrice, isFallback]);
 
+  // ── Purity derivations ───────────────────────────
+  const validCustomKarat = useMemo(() => {
+    const v = parseFloat(customKarat);
+    if (customKarat === "" || isNaN(v)) return null;
+    if (v <= 0 || v > 24) return null;
+    return v;
+  }, [customKarat]);
+
+  const activePurityMultiplier = useMemo(() => {
+    if (selectedPurity === "custom") {
+      return validCustomKarat !== null ? (validCustomKarat / 24) : 0;
+    }
+    return purities[selectedPurity]?.value || 0;
+  }, [selectedPurity, validCustomKarat, purities]);
+
+  const activePurityLabel = useMemo(() => {
+    if (selectedPurity === "custom") {
+      return validCustomKarat !== null ? `${validCustomKarat}K` : "Custom";
+    }
+    return purities[selectedPurity]?.label || "";
+  }, [selectedPurity, validCustomKarat, purities]);
+
   const adjustedPricePer10g = useMemo(
-    () => basePricePer10g * purities[selectedPurity].value,
-    [basePricePer10g, purities, selectedPurity]
+    () => basePricePer10g * activePurityMultiplier,
+    [basePricePer10g, activePurityMultiplier]
   );
 
   const totalPrice = useMemo(() => {
     const w = parseFloat(weight);
     if (isNaN(w) || w <= 0) return 0;
-    return calculatePrice(basePricePer10g, purities[selectedPurity].value, w);
-  }, [basePricePer10g, purities, selectedPurity, weight]);
+    return calculatePrice(basePricePer10g, activePurityMultiplier, w);
+  }, [basePricePer10g, activePurityMultiplier, weight]);
 
   const currencyObj = CURRENCIES.find((c) => c.code === currency);
 
@@ -373,7 +399,7 @@ export default function PriceCalculator({
             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">
               Purity
             </label>
-            <div id="purity-selector" className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div id="purity-selector" className={`grid gap-2.5 ${isGold ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}>
               {purities.map((p, idx) => {
                 const isSelected = selectedPurity === idx;
                 return (
@@ -398,7 +424,58 @@ export default function PriceCalculator({
                   </button>
                 );
               })}
+              {isGold && (
+                <button
+                  key="Custom"
+                  id="purity-custom"
+                  onClick={() => setSelectedPurity("custom")}
+                  className="relative p-3.5 rounded-2xl text-center transition-all duration-300 cursor-pointer glass-card-hover"
+                  style={{
+                    background: selectedPurity === "custom" ? theme.bgCol : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${selectedPurity === "custom" ? theme.borderCol : "rgba(255,255,255,0.05)"}`,
+                    boxShadow: selectedPurity === "custom" ? `0 0 0 1px ${theme.accent}40` : "none",
+                  }}
+                >
+                  <div
+                    className="text-lg font-extrabold"
+                    style={{ color: selectedPurity === "custom" ? theme.accent : "#f5f5f7" }}
+                  >
+                    Custom
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-1 font-medium">Any Karat</div>
+                </button>
+              )}
             </div>
+
+            {selectedPurity === "custom" && isGold && (
+              <div className="mt-4 animate-fadeIn">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
+                  Custom Karat (0 - 24)
+                </label>
+                <div className="relative w-full sm:w-1/2 text-left">
+                  <input
+                    type="number"
+                    min="0.1"
+                    max="24"
+                    step="0.01"
+                    placeholder="E.g., 20.5"
+                    value={customKarat}
+                    onChange={(e) => setCustomKarat(e.target.value)}
+                    className={`w-full rounded-2xl px-4 py-3 text-white text-base font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">
+                    K
+                  </span>
+                </div>
+                {customKarat !== "" && validCustomKarat === null && (
+                  <p className="text-red-400 text-[11px] mt-1.5 ml-1">Please enter a valid Karat (up to 24).</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Weight + Currency Row */}
@@ -465,7 +542,7 @@ export default function PriceCalculator({
             style={{ background: theme.bgCol, border: `1px solid ${theme.borderCol}` }}
           >
             <span className="text-sm text-gray-400 font-medium">
-              {purities[selectedPurity].label} price per 10g
+              {activePurityLabel} price per 10g
             </span>
             <span className={`text-lg font-bold ${theme.textClass}`}>
               {formatCurrency(adjustedPricePer10g, currency)}
@@ -485,7 +562,7 @@ export default function PriceCalculator({
               <div>
                 <div className="text-sm text-gray-400 font-semibold mb-0.5">Total Price</div>
                 <div className="text-xs text-gray-600">
-                  {purities[selectedPurity].label} × {weight || "0"}g
+                  {activePurityLabel} × {weight || "0"}g
                 </div>
               </div>
               <div
