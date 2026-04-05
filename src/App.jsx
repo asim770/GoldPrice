@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Navbar from "./components/Navbar";
 import PriceCalculator from "./components/PriceCalculator";
+import ReceiptGenerator from "./components/ReceiptGenerator";
 import { fetchPricesWithFallback } from "./utils/priceFallback";
 import "./App.css";
 
@@ -9,10 +10,11 @@ const REFRESH_INTERVAL = 5 * 60 * 1000;
 
 /**
  * Root application component.
- * Manages global state: active metal tab, live prices, loading/error states, last-updated time.
+ * Manages global state: active page, active metal tab, live prices, loading/error states, last-updated time.
  * Uses a fallback mechanism — if the API fails, default prices are used automatically.
  */
 function App() {
+  const [activePage, setActivePage]     = useState("calculator"); // "calculator" | "receipt"
   const [activeTab, setActiveTab]       = useState("gold");
   const [prices, setPrices]             = useState(null);
   const [loading, setLoading]           = useState(false);
@@ -50,10 +52,13 @@ function App() {
     return () => clearInterval(id);
   }, [loadPrices]);
 
-  // ── Background glow colour based on active tab ────
-  const glowColor = activeTab === "gold"
-    ? "rgba(245, 158, 11, 0.04)"
-    : "rgba(148, 163, 184, 0.03)";
+  // ── Background glow colour based on active page / tab ────
+  const glowColor =
+    activePage === "receipt"
+      ? "rgba(16, 185, 129, 0.04)"
+      : activeTab === "gold"
+        ? "rgba(245, 158, 11, 0.04)"
+        : "rgba(148, 163, 184, 0.03)";
 
   return (
     <div className="min-h-screen relative" style={{ background: "#06060b", color: "#f5f5f7" }}>
@@ -73,17 +78,30 @@ function App() {
 
       {/* Content */}
       <div className="relative z-10">
-        <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
-        <PriceCalculator
+        <Navbar
           activeTab={activeTab}
-          prices={prices}
-          loading={loading}
-          error={error}
-          lastUpdated={lastUpdated}
-          onRefresh={loadPrices}
-          isFallback={isFallback}
-          fallbackReason={fallbackReason}
+          onTabChange={setActiveTab}
+          activePage={activePage}
+          onPageChange={setActivePage}
         />
+
+        {activePage === "calculator" ? (
+          <PriceCalculator
+            activeTab={activeTab}
+            prices={prices}
+            loading={loading}
+            error={error}
+            lastUpdated={lastUpdated}
+            onRefresh={loadPrices}
+            isFallback={isFallback}
+            fallbackReason={fallbackReason}
+          />
+        ) : (
+          <ReceiptGenerator
+            prices={prices}
+            isFallback={isFallback}
+          />
+        )}
 
         {/* Footer */}
         <footer className="text-center py-8 pb-10 text-gray-600 text-xs max-w-md mx-auto leading-relaxed px-4">

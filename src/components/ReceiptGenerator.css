@@ -1,0 +1,326 @@
+/* ── Receipt Generator Styles ───────────────────────────────── */
+
+/* Mode toggle pills */
+.receipt-mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.receipt-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 0.75rem;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: transparent;
+  color: #6b7280;
+}
+
+.receipt-mode-btn:hover {
+  color: #d1d5db;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.receipt-mode-btn.active-cash {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.1));
+  color: #34d399;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.receipt-mode-btn.active-gold {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.1));
+  color: #fbbf24;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* Item row */
+.receipt-item-row {
+  display: grid;
+  grid-template-columns: 1fr 0.6fr 0.6fr 40px;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 16px;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+  animation: itemSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.receipt-item-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes itemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Remove button */
+.receipt-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.06);
+  color: #f87171;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 18px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.receipt-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  transform: scale(1.08);
+}
+
+/* Add item button */
+.receipt-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 1rem;
+  border: 2px dashed rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.receipt-add-btn:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.04);
+  color: #34d399;
+  transform: translateY(-1px);
+}
+
+/* Summary table */
+.receipt-summary-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+.receipt-summary-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  padding: 8px 12px;
+}
+
+.receipt-summary-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #d1d5db;
+}
+
+.receipt-summary-table tbody tr {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0.75rem;
+}
+
+.receipt-summary-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.receipt-summary-table tbody tr td:first-child {
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.receipt-summary-table tbody tr td:last-child {
+  border-radius: 0 0.75rem 0.75rem 0;
+  font-weight: 700;
+}
+
+/* Generate button */
+.receipt-generate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 24px;
+  border-radius: 1rem;
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(135deg, #f59e0b, #f97316, #eab308);
+  color: #0f0f17;
+  box-shadow: 0 6px 30px rgba(245, 158, 11, 0.25);
+}
+
+.receipt-generate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 40px rgba(245, 158, 11, 0.35);
+}
+
+.receipt-generate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.receipt-generate-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Gradient text for receipt accent */
+.gradient-text-receipt {
+  background: linear-gradient(135deg, #10b981, #34d399, #6ee7b7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Total box */
+.receipt-total-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-radius: 1rem;
+  background: #0a0a0f;
+}
+
+/* Section card */
+.receipt-section {
+  padding: 24px;
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 20px;
+}
+
+/* Input styling consistent with existing app */
+.receipt-input {
+  width: 100%;
+  border-radius: 1rem;
+  padding: 12px 16px;
+  color: #f5f5f7;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.receipt-input::placeholder {
+  color: #4b5563;
+}
+
+.receipt-input:focus {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.receipt-select {
+  width: 100%;
+  border-radius: 1rem;
+  padding: 12px 16px;
+  color: #f5f5f7;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+}
+
+.receipt-select:focus {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.receipt-select option {
+  background: #0f0f17;
+  color: #fff;
+}
+
+/* Label style */
+.receipt-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+/* Validation error */
+.receipt-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  animation: itemSlideIn 0.3s ease both;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .receipt-item-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .receipt-item-row > *:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .receipt-summary-table th,
+  .receipt-summary-table td {
+    padding: 8px 8px;
+    font-size: 11px;
+  }
+}
