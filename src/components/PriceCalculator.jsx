@@ -18,6 +18,8 @@ export default function PriceCalculator({
   error,
   lastUpdated,
   onRefresh,
+  isFallback = false,
+  fallbackReason = null,
 }) {
   const [selectedPurity, setSelectedPurity] = useState(0);
   const [weight, setWeight] = useState("");
@@ -141,7 +143,34 @@ export default function PriceCalculator({
             </div>
           )}
 
-          {/* Error state */}
+          {/* Fallback indicator */}
+          {isFallback && prices && (
+            <div className="py-4 animate-fadeIn">
+              <div
+                className="flex items-start gap-3 text-sm rounded-2xl p-4"
+                style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.15)" }}
+              >
+                <span className="text-lg mt-0.5">📡</span>
+                <div>
+                  <p className="text-amber-400 font-medium">Using default prices</p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Live API unavailable{fallbackReason ? ` — ${fallbackReason}` : ""}.
+                    Calculations continue with fallback values.
+                  </p>
+                  <button
+                    onClick={onRefresh}
+                    disabled={loading}
+                    className="mt-2 px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                    style={{ background: "rgba(245,158,11,0.15)", color: "#fcd34d" }}
+                  >
+                    {loading ? "Retrying…" : "Retry"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error state (only if prices are completely unavailable) */}
           {error && !prices && (
             <div className="py-5">
               <div
@@ -174,9 +203,17 @@ export default function PriceCalculator({
                 </span>
                 <span className="text-gray-500 text-sm font-medium">/ gram</span>
               </div>
-              <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
+              <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 flex-wrap">
                 <span>🕐</span>
                 <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
+                {isFallback && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                    style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24" }}
+                  >
+                    ● Default
+                  </span>
+                )}
                 {loading && (
                   <span
                     className="w-3 h-3 border rounded-full animate-spin inline-block"
