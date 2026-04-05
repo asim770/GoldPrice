@@ -64,16 +64,16 @@ export default function PriceCalculator({
 
   // ── Derived values ───────────────────────────────
 
-  const apiPricePerGram = useMemo(() => {
+  const apiPricePer10g = useMemo(() => {
     if (!prices) return 0;
     return isGold ? prices.gold?.[currency] || 0 : prices.silver?.[currency] || 0;
   }, [prices, isGold, currency]);
 
   // Use manual price when manual mode is active AND a valid value exists
-  const basePricePerGram = useMemo(() => {
+  const basePricePer10g = useMemo(() => {
     if (isManual && validManualPrice !== null) return validManualPrice;
-    return apiPricePerGram;
-  }, [isManual, validManualPrice, apiPricePerGram]);
+    return apiPricePer10g;
+  }, [isManual, validManualPrice, apiPricePer10g]);
 
   // Determine the active price source for display
   const priceSource = useMemo(() => {
@@ -82,16 +82,16 @@ export default function PriceCalculator({
     return "api";
   }, [isManual, validManualPrice, isFallback]);
 
-  const adjustedPricePerGram = useMemo(
-    () => basePricePerGram * purities[selectedPurity].value,
-    [basePricePerGram, purities, selectedPurity]
+  const adjustedPricePer10g = useMemo(
+    () => basePricePer10g * purities[selectedPurity].value,
+    [basePricePer10g, purities, selectedPurity]
   );
 
   const totalPrice = useMemo(() => {
     const w = parseFloat(weight);
     if (isNaN(w) || w <= 0) return 0;
-    return calculatePrice(basePricePerGram, purities[selectedPurity].value, w);
-  }, [basePricePerGram, purities, selectedPurity, weight]);
+    return calculatePrice(basePricePer10g, purities[selectedPurity].value, w);
+  }, [basePricePer10g, purities, selectedPurity, weight]);
 
   const currencyObj = CURRENCIES.find((c) => c.code === currency);
 
@@ -149,7 +149,7 @@ export default function PriceCalculator({
               <span className="text-3xl animate-float">{theme.emoji}</span>
               <div>
                 <h2 className="text-xl font-bold text-white">{theme.metalName} Price</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Live rate per gram</p>
+                <p className="text-xs text-gray-500 mt-0.5">Live rate per 10 grams</p>
               </div>
             </div>
             <button
@@ -241,9 +241,9 @@ export default function PriceCalculator({
                 <span
                   className={`text-4xl sm:text-5xl font-extrabold ${theme.textClass}`}
                 >
-                  {formatCurrency(basePricePerGram, currency)}
+                  {formatCurrency(basePricePer10g, currency)}
                 </span>
-                <span className="text-gray-500 text-sm font-medium">/ gram</span>
+                <span className="text-gray-500 text-sm font-medium">/ 10g</span>
               </div>
               <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 flex-wrap">
                 <span>🕐</span>
@@ -323,7 +323,7 @@ export default function PriceCalculator({
                       type="number"
                       min="0"
                       step="0.01"
-                      placeholder={`Custom ${theme.metalName.toLowerCase()} price per gram…`}
+                      placeholder={`Custom ${theme.metalName.toLowerCase()} price per 10g…`}
                       value={manualPrice}
                       onChange={handleManualPriceChange}
                       className={`w-full rounded-2xl px-4 py-3 text-white text-base font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
@@ -335,7 +335,7 @@ export default function PriceCalculator({
                       }}
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">
-                      {currencyObj?.symbol || "₹"}/g
+                      {currencyObj?.symbol || "₹"}/10g
                     </span>
                   </div>
                   {manualError && (
@@ -465,10 +465,10 @@ export default function PriceCalculator({
             style={{ background: theme.bgCol, border: `1px solid ${theme.borderCol}` }}
           >
             <span className="text-sm text-gray-400 font-medium">
-              {purities[selectedPurity].label} price per gram
+              {purities[selectedPurity].label} price per 10g
             </span>
             <span className={`text-lg font-bold ${theme.textClass}`}>
-              {formatCurrency(adjustedPricePerGram, currency)}
+              {formatCurrency(adjustedPricePer10g, currency)}
             </span>
           </div>
 

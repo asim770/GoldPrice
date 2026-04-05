@@ -4,15 +4,15 @@
  */
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-const PRICE_PROMPT = `You are a financial data assistant. Return ONLY a valid JSON object with the current approximate market prices for gold and silver per gram in INR and USD. Use the most recent prices you have knowledge of. Do not include any explanation, markdown formatting, or code blocks — just raw JSON in exactly this format:
-{"gold_price_per_gram_inr": <number>, "silver_price_per_gram_inr": <number>, "gold_price_per_gram_usd": <number>, "silver_price_per_gram_usd": <number>}`;
+const PRICE_PROMPT = `You are a financial data assistant. Return ONLY a valid JSON object with the current approximate market prices for gold and silver per 10 grams in INR and USD. Use the most recent prices you have knowledge of. Do not include any explanation, markdown formatting, or code blocks — just raw JSON in exactly this format:
+{"gold_price_per_10g_inr": <number>, "silver_price_per_10g_inr": <number>, "gold_price_per_10g_usd": <number>, "silver_price_per_10g_usd": <number>}`;
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
- * Fetches live gold & silver prices from the Gemini API.
+ * Fetches live gold & silver prices (per 10 grams) from the Gemini API.
  * @returns {Promise<{gold: {INR: number, USD: number}, silver: {INR: number, USD: number}, fetchedAt: string}>}
  */
 export async function fetchLivePrices() {
@@ -55,10 +55,10 @@ export async function fetchLivePrices() {
 
     // Validate shape
     const required = [
-      "gold_price_per_gram_inr",
-      "silver_price_per_gram_inr",
-      "gold_price_per_gram_usd",
-      "silver_price_per_gram_usd",
+      "gold_price_per_10g_inr",
+      "silver_price_per_10g_inr",
+      "gold_price_per_10g_usd",
+      "silver_price_per_10g_usd",
     ];
     for (const key of required) {
       if (typeof prices[key] !== "number" || prices[key] <= 0) {
@@ -68,12 +68,12 @@ export async function fetchLivePrices() {
 
     return {
       gold: {
-        INR: prices.gold_price_per_gram_inr,
-        USD: prices.gold_price_per_gram_usd,
+        INR: prices.gold_price_per_10g_inr,
+        USD: prices.gold_price_per_10g_usd,
       },
       silver: {
-        INR: prices.silver_price_per_gram_inr,
-        USD: prices.silver_price_per_gram_usd,
+        INR: prices.silver_price_per_10g_inr,
+        USD: prices.silver_price_per_10g_usd,
       },
       fetchedAt: new Date().toISOString(),
     };
