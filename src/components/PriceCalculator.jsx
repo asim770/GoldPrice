@@ -25,6 +25,11 @@ export default function PriceCalculator({
   const [weight, setWeight] = useState("");
   const [currency, setCurrency] = useState("INR");
 
+  // ── Manual price entry state ──────────────────────
+  const [isManual, setIsManual] = useState(false);
+  const [manualPrice, setManualPrice] = useState("");
+  const [manualError, setManualError] = useState(null);
+
   const isGold = activeTab === "gold";
   const purities = isGold ? GOLD_PURITIES : SILVER_PURITIES;
 
@@ -33,12 +38,49 @@ export default function PriceCalculator({
     setSelectedPurity(0);
   }, [activeTab]);
 
+  // ── Manual price validation ─────────────────────
+  const validManualPrice = useMemo(() => {
+    const v = parseFloat(manualPrice);
+    if (manualPrice === "" || isNaN(v)) return null;
+    if (v <= 0) return null;
+    return v;
+  }, [manualPrice]);
+
+  const handleManualPriceChange = (e) => {
+    const raw = e.target.value;
+    setManualPrice(raw);
+    const v = parseFloat(raw);
+    if (raw !== "" && (isNaN(v) || v <= 0)) {
+      setManualError("Enter a valid positive number");
+    } else {
+      setManualError(null);
+    }
+  };
+
+  const handleToggleManual = () => {
+    setIsManual((prev) => !prev);
+    setManualError(null);
+  };
+
   // ── Derived values ───────────────────────────────
 
-  const basePricePerGram = useMemo(() => {
+  const apiPricePerGram = useMemo(() => {
     if (!prices) return 0;
     return isGold ? prices.gold?.[currency] || 0 : prices.silver?.[currency] || 0;
   }, [prices, isGold, currency]);
+
+  // Use manual price when manual mode is active AND a valid value exists
+  const basePricePerGram = useMemo(() => {
+    if (isManual && validManualPrice !== null) return validManualPrice;
+    return apiPricePerGram;
+  }, [isManual, validManualPrice, apiPricePerGram]);
+
+  // Determine the active price source for display
+  const priceSource = useMemo(() => {
+    if (isManual && validManualPrice !== null) return "manual";
+    if (isFallback) return "fallback";
+    return "api";
+  }, [isManual, validManualPrice, isFallback]);
 
   const adjustedPricePerGram = useMemo(
     () => basePricePerGram * purities[selectedPurity].value,
@@ -206,7 +248,17 @@ export default function PriceCalculator({
               <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 flex-wrap">
                 <span>🕐</span>
                 <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
-                {isFallback && (
+
+                {/* ─── Price source badge ─── */}
+                {priceSource === "manual" && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                    style={{ background: "rgba(99,102,241,0.14)", color: "#a5b4fc" }}
+                  >
+                    ✏️ Manual
+                  </span>
+                )}
+                {priceSource === "fallback" && (
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
                     style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24" }}
@@ -214,12 +266,92 @@ export default function PriceCalculator({
                     ● Default
                   </span>
                 )}
+                {priceSource === "api" && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                    style={{ background: "rgba(34,197,94,0.12)", color: "#4ade80" }}
+                  >
+                    ● Live
+                  </span>
+                )}
+
                 {loading && (
                   <span
                     className="w-3 h-3 border rounded-full animate-spin inline-block"
                     style={{ borderColor: `${theme.accent} transparent transparent transparent`, borderWidth: "1.5px" }}
                   />
                 )}
+              </div>
+
+              {/* ─── MANUAL PRICE TOGGLE + INPUT ─── */}
+              <div className="mt-5">
+                <button
+                  id="manual-price-toggle"
+                  onClick={handleToggleManual}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-300"
+                  style={{
+                    background: isManual ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${isManual ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.08)"}`,
+                    color: isManual ? "#a5b4fc" : "#9ca3af",
+                  }}
+                >
+                  {/* Toggle pill */}
+                  <span
+                    className="relative inline-block w-8 h-[18px] rounded-full transition-colors duration-300"
+                    style={{ background: isManual ? "#6366f1" : "rgba(255,255,255,0.12)" }}
+                  >
+                    <span
+                      className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform duration-300"
+                      style={{ left: isManual ? "15px" : "2px" }}
+                    />
+                  </span>
+                  Enter Price Manually
+                </button>
+
+                {/* Manual input (animated reveal) */}
+                <div
+                  className="overflow-hidden transition-all duration-400 ease-out"
+                  style={{
+                    maxHeight: isManual ? "120px" : "0",
+                    opacity: isManual ? 1 : 0,
+                    marginTop: isManual ? "12px" : "0",
+                  }}
+                >
+                  <div className="relative">
+                    <input
+                      id="manual-price-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder={`Custom ${theme.metalName.toLowerCase()} price per gram…`}
+                      value={manualPrice}
+                      onChange={handleManualPriceChange}
+                      className={`w-full rounded-2xl px-4 py-3 text-white text-base font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
+                      style={{
+                        background: "rgba(99,102,241,0.06)",
+                        border: manualError
+                          ? "1px solid rgba(239,68,68,0.4)"
+                          : "1px solid rgba(99,102,241,0.2)",
+                      }}
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">
+                      {currencyObj?.symbol || "₹"}/g
+                    </span>
+                  </div>
+                  {manualError && (
+                    <p className="text-red-400 text-[11px] mt-1.5 ml-1">{manualError}</p>
+                  )}
+                  {isManual && validManualPrice !== null && (
+                    <p className="text-indigo-400 text-[11px] mt-1.5 ml-1">
+                      Calculations now use your custom price.
+                    </p>
+                  )}
+                  {isManual && manualPrice === "" && (
+                    <p className="text-gray-500 text-[11px] mt-1.5 ml-1">
+                      Using {isFallback ? "default" : "API"} price until you enter a value.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
