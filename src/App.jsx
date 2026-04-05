@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Navbar from "./components/Navbar";
 import PriceCalculator from "./components/PriceCalculator";
-import { fetchLivePrices } from "./gemini";
+import { fetchPricesWithFallback } from "./utils/priceFallback";
 import "./App.css";
 
 /** Auto-refresh interval (5 minutes) */
@@ -10,27 +10,35 @@ const REFRESH_INTERVAL = 5 * 60 * 1000;
 /**
  * Root application component.
  * Manages global state: active metal tab, live prices, loading/error states, last-updated time.
+ * Uses a fallback mechanism — if the API fails, default prices are used automatically.
  */
 function App() {
-  const [activeTab, setActiveTab] = useState("gold");
-  const [prices, setPrices]       = useState(null);
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [activeTab, setActiveTab]       = useState("gold");
+  const [prices, setPrices]             = useState(null);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState(null);
+  const [lastUpdated, setLastUpdated]   = useState(null);
+  const [isFallback, setIsFallback]     = useState(false);
+  const [fallbackReason, setFallbackReason] = useState(null);
 
-  // ── Fetch prices ──────────────────────────────────
+  // ── Fetch prices (with automatic fallback) ────────
   const loadPrices = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const data = await fetchLivePrices();
-      setPrices(data);
-      setLastUpdated(data.fetchedAt);
-    } catch (err) {
-      setError(err.message || "Failed to fetch prices. Please try again.");
-    } finally {
-      setLoading(false);
+
+    const data = await fetchPricesWithFallback();
+
+    setPrices(data);
+    setLastUpdated(data.fetchedAt);
+    setIsFallback(data.isFallback);
+    setFallbackReason(data.fallbackReason || null);
+
+    // If fallback was used, keep a soft error message for awareness
+    if (data.isFallback) {
+      setError(data.fallbackReason || "API unavailable — using default prices.");
     }
+
+    setLoading(false);
   }, []);
 
   // Fetch on mount
@@ -73,6 +81,8 @@ function App() {
           error={error}
           lastUpdated={lastUpdated}
           onRefresh={loadPrices}
+          isFallback={isFallback}
+          fallbackReason={fallbackReason}
         />
 
         {/* Footer */}
