@@ -29,15 +29,15 @@ export const CURRENCIES = [
 // ── Calculation ────────────────────────────────────────────────
 
 /**
- * Calculate total price = basePricePerGram × purityMultiplier × weight
- * @param {number} basePricePerGram - Live price per gram of pure metal
+ * Calculate total price = (pricePer10g / 10) × purityMultiplier × weight
+ * @param {number} pricePer10g      - Price per 10 grams of pure metal
  * @param {number} purityMultiplier - Purity fraction (0–1)
  * @param {number} weightInGrams    - Weight in grams
  * @returns {number} Total calculated price (0 if any input is falsy)
  */
-export function calculatePrice(basePricePerGram, purityMultiplier, weightInGrams) {
-  if (!basePricePerGram || !purityMultiplier || !weightInGrams) return 0;
-  return basePricePerGram * purityMultiplier * weightInGrams;
+export function calculatePrice(pricePer10g, purityMultiplier, weightInGrams) {
+  if (!pricePer10g || !purityMultiplier || !weightInGrams) return 0;
+  return (pricePer10g / 10) * purityMultiplier * weightInGrams;
 }
 
 // ── Formatting ─────────────────────────────────────────────────

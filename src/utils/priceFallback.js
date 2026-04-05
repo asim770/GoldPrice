@@ -6,23 +6,21 @@
  * the module returns sensible default prices so the UI and calculations
  * continue to work uninterrupted.
  *
- * Default gold price (24K, per gram, INR): ₹9,300 (≈ ₹153,009 per 10g ÷ 10 ≈ mapped below)
- * The user-specified fallback of 153,009 is the **10-gram** rate; we store per-gram.
+ * All prices are stored as **per 10 grams**.
+ * Default gold price (24K, per 10g, INR): ₹153,009
  */
 
 import { fetchLivePrices } from "../gemini";
 
-// ── Default prices (per gram) ────────────────────────────────────
-// Gold fallback: ₹153,009 for 10 g → ₹15,300.9 / g  (rounded)
-// Silver, USD equivalents are approximate defaults.
+// ── Default prices (per 10 grams) ────────────────────────────────
 const DEFAULT_PRICES = Object.freeze({
   gold: {
-    INR: 15300.9, // ₹153,009 per 10 g  →  per gram
-    USD: 93.5,
+    INR: 153009,  // ₹153,009 per 10g
+    USD: 935,     // ~$935 per 10g
   },
   silver: {
-    INR: 100.0,
-    USD: 1.15,
+    INR: 1000,    // ₹1,000 per 10g
+    USD: 11.5,    // ~$11.5 per 10g
   },
 });
 
