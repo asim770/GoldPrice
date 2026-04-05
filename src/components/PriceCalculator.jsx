@@ -26,7 +26,8 @@ export default function PriceCalculator({
   const [currency, setCurrency] = useState("INR");
 
   // ── Custom Purity state ────────────────────────────
-  const [customKarat, setCustomKarat] = useState("");
+  const [customPurityType, setCustomPurityType] = useState("karat"); // "karat" or "percentage"
+  const [customPurityValue, setCustomPurityValue] = useState("");
 
   // ── Manual price entry state ──────────────────────
   const [isManual, setIsManual] = useState(false);
@@ -39,7 +40,8 @@ export default function PriceCalculator({
   // Reset purity index when switching metals
   useEffect(() => {
     setSelectedPurity(0);
-    setCustomKarat("");
+    setCustomPurityValue("");
+    setCustomPurityType("karat");
   }, [activeTab]);
 
   // ── Manual price validation ─────────────────────
@@ -87,26 +89,33 @@ export default function PriceCalculator({
   }, [isManual, validManualPrice, isFallback]);
 
   // ── Purity derivations ───────────────────────────
-  const validCustomKarat = useMemo(() => {
-    const v = parseFloat(customKarat);
-    if (customKarat === "" || isNaN(v)) return null;
-    if (v <= 0 || v > 24) return null;
+  const validCustomPurity = useMemo(() => {
+    const v = parseFloat(customPurityValue);
+    if (customPurityValue === "" || isNaN(v)) return null;
+    if (customPurityType === "karat" && (v <= 0 || v > 24)) return null;
+    if (customPurityType === "percentage" && (v <= 0 || v > 100)) return null;
     return v;
-  }, [customKarat]);
+  }, [customPurityValue, customPurityType]);
 
   const activePurityMultiplier = useMemo(() => {
     if (selectedPurity === "custom") {
-      return validCustomKarat !== null ? (validCustomKarat / 24) : 0;
+      if (validCustomPurity !== null) {
+        return customPurityType === "karat" ? validCustomPurity / 24 : validCustomPurity / 100;
+      }
+      return 0;
     }
     return purities[selectedPurity]?.value || 0;
-  }, [selectedPurity, validCustomKarat, purities]);
+  }, [selectedPurity, validCustomPurity, customPurityType, purities]);
 
   const activePurityLabel = useMemo(() => {
     if (selectedPurity === "custom") {
-      return validCustomKarat !== null ? `${validCustomKarat}K` : "Custom";
+      if (validCustomPurity !== null) {
+        return customPurityType === "karat" ? `${validCustomPurity}K` : `${validCustomPurity}%`;
+      }
+      return "Custom";
     }
     return purities[selectedPurity]?.label || "";
-  }, [selectedPurity, validCustomKarat, purities]);
+  }, [selectedPurity, validCustomPurity, customPurityType, purities]);
 
   const adjustedPricePer10g = useMemo(
     () => basePricePer10g * activePurityMultiplier,
@@ -442,25 +451,46 @@ export default function PriceCalculator({
                   >
                     Custom
                   </div>
-                  <div className="text-[11px] text-gray-500 mt-1 font-medium">Any Karat</div>
+                  <div className="text-[11px] text-gray-500 mt-1 font-medium">Any Value</div>
                 </button>
               )}
             </div>
 
             {selectedPurity === "custom" && isGold && (
-              <div className="mt-4 animate-fadeIn">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
-                  Custom Karat (0 - 24)
-                </label>
-                <div className="relative w-full sm:w-1/2 text-left">
+              <div className="mt-4 p-4 rounded-2xl animate-fadeIn" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div className="flex items-center justify-between mb-4">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    Custom Type
+                  </label>
+                  <div className="flex bg-gray-900/40 rounded-lg p-1 border border-gray-700/50">
+                    <button
+                      onClick={() => setCustomPurityType("karat")}
+                      className={`px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                        customPurityType === "karat" ? "bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "text-gray-500 hover:text-gray-300"
+                      }`}
+                    >
+                      Karat
+                    </button>
+                    <button
+                      onClick={() => setCustomPurityType("percentage")}
+                      className={`px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                        customPurityType === "percentage" ? "bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "text-gray-500 hover:text-gray-300"
+                      }`}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative w-full text-left">
                   <input
                     type="number"
                     min="0.1"
-                    max="24"
+                    max={customPurityType === "karat" ? "24" : "100"}
                     step="0.01"
-                    placeholder="E.g., 20.5"
-                    value={customKarat}
-                    onChange={(e) => setCustomKarat(e.target.value)}
+                    placeholder={customPurityType === "karat" ? "E.g., 20.5" : "E.g., 91.6"}
+                    value={customPurityValue}
+                    onChange={(e) => setCustomPurityValue(e.target.value)}
                     className={`w-full rounded-2xl px-4 py-3 text-white text-base font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
                     style={{
                       background: "rgba(255,255,255,0.04)",
@@ -468,11 +498,13 @@ export default function PriceCalculator({
                     }}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">
-                    K
+                    {customPurityType === "karat" ? "K" : "%"}
                   </span>
                 </div>
-                {customKarat !== "" && validCustomKarat === null && (
-                  <p className="text-red-400 text-[11px] mt-1.5 ml-1">Please enter a valid Karat (up to 24).</p>
+                {customPurityValue !== "" && validCustomPurity === null && (
+                  <p className="text-red-400 text-[11px] mt-2 ml-1">
+                    Please enter a valid {customPurityType === "karat" ? "Karat (up to 24)" : "Percentage (up to 100)"}.
+                  </p>
                 )}
               </div>
             )}
