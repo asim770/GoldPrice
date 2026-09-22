@@ -1,110 +1,97 @@
 import { memo } from "react";
 
-const TABS = [
-  { key: "gold",   label: "Gold",   emoji: "🥇" },
-  { key: "silver", label: "Silver", emoji: "🥈" },
-];
-
 /**
- * Top navigation bar with logo, Gold/Silver tab switcher, and Receipt Generator link.
+ * iPhone 17 UI Fixed Floating Liquid Glass Navbar
+ * Positioned fixed at the top-right of the viewport.
  */
-function Navbar({ activeTab, onTabChange, activePage, onPageChange }) {
+function Navbar({
+  activeTab,
+  onTabChange,
+  activePage,
+  onPageChange,
+}) {
   return (
-    <nav
-      id="main-navbar"
-      className="w-full sticky top-0 z-50"
-      style={{
-        background: "rgba(6, 6, 11, 0.75)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-      }}
-    >
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-        {/* Logo */}
+    <header className="fixed top-3 sm:top-4 right-3 sm:right-6 md:right-8 z-50 flex justify-end pointer-events-auto">
+      <nav
+        id="main-navbar"
+        className="ios-navbar-capsule px-4 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-300 shadow-2xl"
+        style={{
+          background: "rgba(10, 13, 22, 0.85)",
+          backdropFilter: "blur(40px) saturate(190%)",
+          WebkitBackdropFilter: "blur(40px) saturate(190%)",
+        }}
+      >
+        {/* Left inside capsule: Brand Logo */}
         <div
-          className="flex items-center gap-3 cursor-pointer"
+          className="flex items-center gap-2 cursor-pointer group select-none shrink-0"
           onClick={() => onPageChange("calculator")}
         >
           <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg"
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-base shadow-lg transition-transform duration-300 group-hover:scale-105 group-active:scale-95"
             style={{
-              background: "linear-gradient(135deg, #f59e0b, #f97316)",
-              boxShadow: "0 4px 20px rgba(245, 158, 11, 0.25)",
+              background: "linear-gradient(145deg, #fbbf24 0%, #d97706 100%)",
+              boxShadow: "0 4px 16px rgba(245, 158, 11, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.6)",
             }}
           >
-            💰
+            ⚖️
           </div>
-          <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-            Price<span className="gradient-text-gold">Cal</span>
-          </h1>
+          <div>
+            <span className="text-sm sm:text-base font-black tracking-tight text-white">
+              Bullion<span className="gradient-text-gold">Desk</span>
+            </span>
+          </div>
         </div>
 
-        {/* Navigation area */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Gold/Silver Tab Switcher — only visible on calculator page */}
+        {/* Right inside capsule: iOS Segmented Metal Control & Receipt Button */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {activePage === "calculator" && (
-            <div
-              id="tab-switcher"
-              className="relative flex items-center gap-1 p-1 rounded-2xl"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              {TABS.map((tab) => {
-                const isActive = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    id={`tab-${tab.key}`}
-                    onClick={() => onTabChange(tab.key)}
-                    className={`relative z-10 flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 cursor-pointer ${
-                      isActive ? "text-gray-950" : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    {isActive && (
-                      <span
-                        className={`absolute inset-0 rounded-xl ${
-                          tab.key === "gold" ? "tab-indicator-gold" : "tab-indicator-silver"
-                        } transition-all duration-300`}
-                        style={{ zIndex: -1 }}
-                      />
-                    )}
-                    <span className="text-base">{tab.emoji}</span>
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
+            <div className="ios-segmented flex items-center p-0.5">
+              <button
+                type="button"
+                id="tab-gold"
+                onClick={() => onTabChange("gold")}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  activeTab === "gold"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-md shadow-amber-500/30 scale-[1.02]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <span>🥇</span>
+                <span>Gold</span>
+              </button>
+              <button
+                type="button"
+                id="tab-silver"
+                onClick={() => onTabChange("silver")}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  activeTab === "silver"
+                    ? "bg-gradient-to-r from-slate-200 to-slate-300 text-black shadow-md shadow-slate-300/30 scale-[1.02]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <span>🥈</span>
+                <span>Silver</span>
+              </button>
             </div>
           )}
 
-          {/* Receipt Generator Button */}
+          {/* Receipt Button */}
           <button
+            type="button"
             id="nav-receipt-btn"
-            onClick={() =>
-              onPageChange(activePage === "receipt" ? "calculator" : "receipt")
-            }
-            className={`relative flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 cursor-pointer ${
+            onClick={() => onPageChange(activePage === "receipt" ? "calculator" : "receipt")}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
               activePage === "receipt"
-                ? "text-gray-950"
-                : "text-gray-400 hover:text-white"
+                ? "bg-gradient-to-r from-emerald-400 to-emerald-500 text-black shadow-lg shadow-emerald-500/30"
+                : "ios-btn-glass text-gray-200 hover:text-white"
             }`}
-            style={
-              activePage === "receipt"
-                ? {
-                    background: "linear-gradient(135deg, #10b981, #34d399)",
-                    boxShadow: "0 4px 15px rgba(16, 185, 129, 0.3)",
-                  }
-                : {
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                  }
-            }
           >
-            <span className="text-base">🧾</span>
-            <span className="hidden sm:inline">Receipt</span>
+            <span>🧾</span>
+            <span>Receipt</span>
           </button>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }
 

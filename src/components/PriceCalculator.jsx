@@ -1,613 +1,536 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   GOLD_PURITIES,
   SILVER_PURITIES,
   CURRENCIES,
-  calculatePrice,
+  BULLION_CITIES,
+  searchBullionCities,
+  calculateFullBreakdown,
   formatCurrency,
   formatLastUpdated,
 } from "../utils/priceUtils";
 
-/**
- * Main calculator section — shows live price header + purity/weight/currency calculator.
- */
 export default function PriceCalculator({
-  activeTab,
+  activeTab = "gold",
+  setActiveTab,
   prices,
   loading,
-  error,
   lastUpdated,
+  location = "Mumbai, India",
+  date = new Date().toISOString().split("T")[0],
   onRefresh,
-  isFallback = false,
-  fallbackReason = null,
+  onNavigateToReceipt,
 }) {
-  const [selectedPurity, setSelectedPurity] = useState(0);
-  const [weight, setWeight] = useState("");
-  const [currency, setCurrency] = useState("INR");
-
-  // ── Custom Purity state ────────────────────────────
-  const [customPurityType, setCustomPurityType] = useState("karat"); // "karat" or "percentage"
-  const [customPurityValue, setCustomPurityValue] = useState("");
-
-  // ── Manual price entry state ──────────────────────
-  const [isManual, setIsManual] = useState(false);
-  const [manualPrice, setManualPrice] = useState("");
-  const [manualError, setManualError] = useState(null);
-
   const isGold = activeTab === "gold";
+
+  // ── Calculator State ──────────────────────────────────
+  const [selectedPurity, setSelectedPurity] = useState(0);
+  const [weight, setWeight]                 = useState("10"); // Default 10g / 1 Tola
+  const [currency, setCurrency]             = useState("INR");
+
+  // Optional GST and Making Charges
+  const [includeGst, setIncludeGst]               = useState(true);
+  const [includeMaking, setIncludeMaking]         = useState(false);
+  const [makingChargeValue, setMakingChargeValue] = useState("10"); // 10% default
+
+  // ── Place Search State ────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef(null);
+  const dropdownRef    = useRef(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Quick popular cities
+  const popularCities = ["Mumbai", "Delhi", "Kolkata", "Chennai", "Jaipur", "Dubai"];
+
+  // Suggestions for autocomplete
+  const citySuggestions = useMemo(() => {
+    if (!searchQuery.trim()) return BULLION_CITIES.slice(0, 6);
+    return searchBullionCities(searchQuery).slice(0, 8);
+  }, [searchQuery]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target)
+      ) {
+        setIsSearching(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelectPlace = (placeName) => {
+    setIsSearching(false);
+    setSearchQuery("");
+    if (onRefresh) onRefresh(placeName, date);
+  };
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    const matched = BULLION_CITIES.find(
+      (c) => c.name.toLowerCase() === q.toLowerCase()
+    );
+    const finalLocation = matched
+      ? `${matched.name}, ${matched.country}`
+      : q.includes(",")
+      ? q
+      : `${q}, India`;
+
+    handleSelectPlace(finalLocation);
+  };
+
   const purities = isGold ? GOLD_PURITIES : SILVER_PURITIES;
 
-  // Reset purity index when switching metals
+  // Reset purity index when switching metal
   useEffect(() => {
     setSelectedPurity(0);
-    setCustomPurityValue("");
-    setCustomPurityType("karat");
   }, [activeTab]);
 
-  // ── Manual price validation ─────────────────────
-  const validManualPrice = useMemo(() => {
-    const v = parseFloat(manualPrice);
-    if (manualPrice === "" || isNaN(v)) return null;
-    if (v <= 0) return null;
-    return v;
-  }, [manualPrice]);
+  // ── Derived Market Values ──────────────────────────────
+  const gold24k = prices?.gold?.INR || 154750;
+  const gold22k = prices?.gold?.INR_22k || Math.round(gold24k * (22 / 24));
+  const gold18k = prices?.gold?.INR_18k || Math.round(gold24k * (18 / 24));
+  const goldPerGram = Math.round(gold24k / 10);
 
-  const handleManualPriceChange = (e) => {
-    const raw = e.target.value;
-    setManualPrice(raw);
-    const v = parseFloat(raw);
-    if (raw !== "" && (isNaN(v) || v <= 0)) {
-      setManualError("Enter a valid positive number");
-    } else {
-      setManualError(null);
-    }
-  };
+  const silver10g = prices?.silver?.INR || 2500;
+  const silverKg = prices?.silver?.INR_kg || Math.round(silver10g * 100);
+  const silver925 = prices?.silver?.INR_925 || Math.round(silver10g * 0.925);
+  const silverPerGram = Math.round((silver10g / 10) * 10) / 10;
 
-  const handleToggleManual = () => {
-    setIsManual((prev) => !prev);
-    setManualError(null);
-  };
+  const basePricePer10g = isGold ? gold24k : silver10g;
+  const activePurityMultiplier = purities[selectedPurity]?.value || 1.0;
+  const activePurityLabel = purities[selectedPurity]?.label || "";
 
-  // ── Derived values ───────────────────────────────
-
-  const apiPricePer10g = useMemo(() => {
-    if (!prices) return 0;
-    return isGold ? prices.gold?.[currency] || 0 : prices.silver?.[currency] || 0;
-  }, [prices, isGold, currency]);
-
-  // Use manual price when manual mode is active AND a valid value exists
-  const basePricePer10g = useMemo(() => {
-    if (isManual && validManualPrice !== null) return validManualPrice;
-    return apiPricePer10g;
-  }, [isManual, validManualPrice, apiPricePer10g]);
-
-  // Determine the active price source for display
-  const priceSource = useMemo(() => {
-    if (isManual && validManualPrice !== null) return "manual";
-    if (isFallback) return "fallback";
-    return "api";
-  }, [isManual, validManualPrice, isFallback]);
-
-  // ── Purity derivations ───────────────────────────
-  const validCustomPurity = useMemo(() => {
-    const v = parseFloat(customPurityValue);
-    if (customPurityValue === "" || isNaN(v)) return null;
-    if (customPurityType === "karat" && (v <= 0 || v > 24)) return null;
-    if (customPurityType === "percentage" && (v <= 0 || v > 100)) return null;
-    return v;
-  }, [customPurityValue, customPurityType]);
-
-  const activePurityMultiplier = useMemo(() => {
-    if (selectedPurity === "custom") {
-      if (validCustomPurity !== null) {
-        return customPurityType === "karat" ? validCustomPurity / 24 : validCustomPurity / 100;
-      }
-      return 0;
-    }
-    return purities[selectedPurity]?.value || 0;
-  }, [selectedPurity, validCustomPurity, customPurityType, purities]);
-
-  const activePurityLabel = useMemo(() => {
-    if (selectedPurity === "custom") {
-      if (validCustomPurity !== null) {
-        return customPurityType === "karat" ? `${validCustomPurity}K` : `${validCustomPurity}%`;
-      }
-      return "Custom";
-    }
-    return purities[selectedPurity]?.label || "";
-  }, [selectedPurity, validCustomPurity, customPurityType, purities]);
-
-  const adjustedPricePer10g = useMemo(
-    () => basePricePer10g * activePurityMultiplier,
-    [basePricePer10g, activePurityMultiplier]
-  );
-
-  const totalPrice = useMemo(() => {
+  // Breakdown calculations
+  const breakdown = useMemo(() => {
     const w = parseFloat(weight);
-    if (isNaN(w) || w <= 0) return 0;
-    return calculatePrice(basePricePer10g, activePurityMultiplier, w);
-  }, [basePricePer10g, activePurityMultiplier, weight]);
+    return calculateFullBreakdown({
+      pricePer10g: basePricePer10g,
+      purityMultiplier: activePurityMultiplier,
+      weightInGrams: isNaN(w) || w <= 0 ? 0 : w,
+      makingChargeType: "percentage",
+      makingChargeValue: includeMaking ? makingChargeValue : 0,
+      includeGst,
+      gstRate: 3.0,
+    });
+  }, [basePricePer10g, activePurityMultiplier, weight, includeMaking, makingChargeValue, includeGst]);
 
-  const currencyObj = CURRENCIES.find((c) => c.code === currency);
+  const handleCopyQuote = () => {
+    const text = `Bullion Quote: ${isGold ? "Gold" : "Silver"} (${activePurityLabel})
+Location: ${location}
+Rate: ${formatCurrency(breakdown.ratePerGram * 10, currency)}/10g (${formatCurrency(breakdown.ratePerGram, currency)}/g)
+Weight: ${weight}g
+Base Metal Cost: ${formatCurrency(breakdown.baseMetal, currency)}
+${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : ""}Total: ${formatCurrency(breakdown.grandTotal, currency)}`;
 
-  // ── Theme tokens ─────────────────────────────────
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
 
   const theme = isGold
     ? {
-        accent:      "#f59e0b",
-        accentRgb:   "245,158,11",
-        gradient:    "linear-gradient(135deg, #f59e0b, #f97316, #eab308)",
-        textClass:   "gradient-text-gold",
-        borderCol:   "rgba(245,158,11,0.15)",
-        bgCol:       "rgba(245,158,11,0.06)",
-        glowCol:     "rgba(245,158,11,0.12)",
-        focusRing:   "focus-ring-gold",
-        emoji:       "🥇",
-        metalName:   "Gold",
+        accent: "#f59e0b",
+        gradient: "linear-gradient(135deg, #fbbf24, #d97706)",
+        textClass: "gradient-text-gold",
+        emoji: "🥇",
+        metalName: "Gold",
       }
     : {
-        accent:      "#94a3b8",
-        accentRgb:   "148,163,184",
-        gradient:    "linear-gradient(135deg, #94a3b8, #e2e8f0, #cbd5e1)",
-        textClass:   "gradient-text-silver",
-        borderCol:   "rgba(148,163,184,0.15)",
-        bgCol:       "rgba(148,163,184,0.06)",
-        glowCol:     "rgba(148,163,184,0.1)",
-        focusRing:   "focus-ring-silver",
-        emoji:       "🥈",
-        metalName:   "Silver",
+        accent: "#94a3b8",
+        gradient: "linear-gradient(135deg, #f1f5f9, #64748b)",
+        textClass: "gradient-text-silver",
+        emoji: "🥈",
+        metalName: "Silver",
       };
 
-  // ── Render ───────────────────────────────────────
-
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      {/* ─── LIVE PRICE CARD ─── */}
-      <div
-        id="live-price-card"
-        className="glass-card relative overflow-hidden p-6 sm:p-8 mb-6 animate-fadeIn"
-        style={{
-          borderColor: theme.borderCol,
-          boxShadow: `0 8px 40px ${theme.glowCol}`,
-        }}
-      >
-        {/* Decorative glow blob */}
-        <div
-          className="absolute -top-20 -right-20 w-56 h-56 rounded-full blur-[80px] animate-pulse-glow pointer-events-none"
-          style={{ background: theme.gradient, opacity: 0.15 }}
-        />
-
-        <div className="relative z-10">
-          {/* Title row */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl animate-float">{theme.emoji}</span>
-              <div>
-                <h2 className="text-xl font-bold text-white">{theme.metalName} Price</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Live rate per 10 grams</p>
-              </div>
-            </div>
-            <button
-              id="refresh-btn"
-              onClick={onRefresh}
-              disabled={loading}
-              className={`p-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
-                loading ? "animate-spin-slow" : ""
-              }`}
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: loading ? theme.accent : "#9ca3af",
-              }}
-              title="Refresh prices"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                <path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-              </svg>
-            </button>
+    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* ─────────────────────────────────────────────────────────────────
+          1. CLEAN PLACE SEARCH BAR & CITY CHIPS
+      ─────────────────────────────────────────────────────────────────── */}
+      <div className="ios-glass p-5 sm:p-6 relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse-live" />
+            <span className="text-sm font-bold text-white tracking-tight">
+              {location}
+            </span>
+            <span className="text-xs text-gray-500">&bull;</span>
+            <span className="text-xs text-gray-400 font-medium">
+              Updated {formatLastUpdated(lastUpdated)}
+            </span>
           </div>
 
-          {/* Loading state */}
-          {loading && !prices && (
-            <div className="flex items-center gap-3 py-8 justify-center">
-              <div
-                className="w-6 h-6 border-2 rounded-full animate-spin"
-                style={{ borderColor: `${theme.accent} transparent transparent transparent` }}
-              />
-              <span className="text-gray-400 text-sm">Fetching live prices…</span>
-            </div>
+          {onRefresh && (
+            <button
+              onClick={() => onRefresh(location, date)}
+              disabled={loading}
+              className="ios-btn-glass px-3 py-1 rounded-full text-xs font-semibold text-gray-300 hover:text-white flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            >
+              <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-400" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{loading ? "Updating…" : "Refresh Rates"}</span>
+            </button>
           )}
+        </div>
 
-          {/* Fallback indicator */}
-          {isFallback && prices && (
-            <div className="py-4 animate-fadeIn">
-              <div
-                className="flex items-start gap-3 text-sm rounded-2xl p-4"
-                style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.15)" }}
-              >
-                <span className="text-lg mt-0.5">📡</span>
-                <div>
-                  <p className="text-amber-400 font-medium">Using default prices</p>
-                  <p className="text-gray-500 text-xs mt-1">
-                    Live API unavailable{fallbackReason ? ` — ${fallbackReason}` : ""}.
-                    Calculations continue with fallback values.
-                  </p>
-                  <button
-                    onClick={onRefresh}
-                    disabled={loading}
-                    className="mt-2 px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
-                    style={{ background: "rgba(245,158,11,0.15)", color: "#fcd34d" }}
-                  >
-                    {loading ? "Retrying…" : "Retry"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Clean Search Input */}
+        <div className="relative">
+          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+            <span className="absolute left-4 text-gray-400 pointer-events-none">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
 
-          {/* Error state (only if prices are completely unavailable) */}
-          {error && !prices && (
-            <div className="py-5">
-              <div
-                className="flex items-start gap-3 text-sm rounded-2xl p-4"
-                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)" }}
-              >
-                <span className="text-lg mt-0.5">⚠️</span>
-                <div>
-                  <p className="text-red-400 font-medium">{error}</p>
-                  <button
-                    onClick={onRefresh}
-                    className="mt-2 px-4 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
-                    style={{ background: "rgba(239,68,68,0.15)", color: "#fca5a5" }}
-                  >
-                    Try Again
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onFocus={() => setIsSearching(true)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsSearching(true);
+              }}
+              placeholder="Search place (e.g. Kolkata, Jaipur, Delhi, Surat, Dubai)..."
+              className="ios-input w-full rounded-full pl-11 pr-24 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all"
+            />
 
-          {/* Price display */}
-          {prices && (
-            <div className="animate-fadeIn">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span
-                  className={`text-4xl sm:text-5xl font-extrabold ${theme.textClass}`}
-                >
-                  {formatCurrency(basePricePer10g, currency)}
-                </span>
-                <span className="text-gray-500 text-sm font-medium">/ 10g</span>
-              </div>
-              <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 flex-wrap">
-                <span>🕐</span>
-                <span>Last updated: {formatLastUpdated(lastUpdated)}</span>
+            <button
+              type="submit"
+              disabled={loading}
+              className="absolute right-1.5 ios-btn-primary px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider cursor-pointer"
+            >
+              {loading ? "…" : "Search"}
+            </button>
+          </form>
 
-                {/* ─── Price source badge ─── */}
-                {priceSource === "manual" && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                    style={{ background: "rgba(99,102,241,0.14)", color: "#a5b4fc" }}
-                  >
-                    ✏️ Manual
-                  </span>
-                )}
-                {priceSource === "fallback" && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                    style={{ background: "rgba(245,158,11,0.12)", color: "#fbbf24" }}
-                  >
-                    ● Default
-                  </span>
-                )}
-                {priceSource === "api" && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-                    style={{ background: "rgba(34,197,94,0.12)", color: "#4ade80" }}
-                  >
-                    ● Live
-                  </span>
-                )}
-
-                {loading && (
-                  <span
-                    className="w-3 h-3 border rounded-full animate-spin inline-block"
-                    style={{ borderColor: `${theme.accent} transparent transparent transparent`, borderWidth: "1.5px" }}
-                  />
-                )}
-              </div>
-
-              {/* ─── MANUAL PRICE TOGGLE + INPUT ─── */}
-              <div className="mt-5">
-                <button
-                  id="manual-price-toggle"
-                  onClick={handleToggleManual}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-300"
-                  style={{
-                    background: isManual ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.05)",
-                    border: `1px solid ${isManual ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.08)"}`,
-                    color: isManual ? "#a5b4fc" : "#9ca3af",
-                  }}
-                >
-                  {/* Toggle pill */}
-                  <span
-                    className="relative inline-block w-8 h-[18px] rounded-full transition-colors duration-300"
-                    style={{ background: isManual ? "#6366f1" : "rgba(255,255,255,0.12)" }}
-                  >
-                    <span
-                      className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform duration-300"
-                      style={{ left: isManual ? "15px" : "2px" }}
-                    />
-                  </span>
-                  Enter Price Manually
-                </button>
-
-                {/* Manual input (animated reveal) */}
+          {/* Autocomplete Dropdown */}
+          {isSearching && (
+            <div
+              ref={dropdownRef}
+              className="absolute top-full left-0 right-0 mt-2 z-50 rounded-2xl bg-[#0b0e17]/95 border border-white/[0.14] shadow-2xl backdrop-blur-2xl overflow-hidden"
+            >
+              {citySuggestions.map((c) => (
                 <div
-                  className="overflow-hidden transition-all duration-400 ease-out"
-                  style={{
-                    maxHeight: isManual ? "120px" : "0",
-                    opacity: isManual ? 1 : 0,
-                    marginTop: isManual ? "12px" : "0",
-                  }}
+                  key={c.name}
+                  onClick={() => handleSelectPlace(`${c.name}, ${c.country}`)}
+                  className="px-4 py-2.5 hover:bg-white/[0.08] flex items-center justify-between cursor-pointer text-xs border-b border-white/[0.03] last:border-0"
                 >
-                  <div className="relative">
-                    <input
-                      id="manual-price-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder={`Custom ${theme.metalName.toLowerCase()} price per 10g…`}
-                      value={manualPrice}
-                      onChange={handleManualPriceChange}
-                      className={`w-full rounded-2xl px-4 py-3 text-white text-base font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
-                      style={{
-                        background: "rgba(99,102,241,0.06)",
-                        border: manualError
-                          ? "1px solid rgba(239,68,68,0.4)"
-                          : "1px solid rgba(99,102,241,0.2)",
-                      }}
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">
-                      {currencyObj?.symbol || "₹"}/10g
-                    </span>
+                  <div className="font-semibold text-white">
+                    {c.name}, <span className="text-gray-400 font-normal">{c.state || c.country}</span>
                   </div>
-                  {manualError && (
-                    <p className="text-red-400 text-[11px] mt-1.5 ml-1">{manualError}</p>
-                  )}
-                  {isManual && validManualPrice !== null && (
-                    <p className="text-indigo-400 text-[11px] mt-1.5 ml-1">
-                      Calculations now use your custom price.
-                    </p>
-                  )}
-                  {isManual && manualPrice === "" && (
-                    <p className="text-gray-500 text-[11px] mt-1.5 ml-1">
-                      Using {isFallback ? "default" : "API"} price until you enter a value.
-                    </p>
-                  )}
+                  <div className="text-[11px] text-amber-400/80">{c.hub}</div>
                 </div>
-              </div>
+              ))}
             </div>
           )}
+        </div>
+
+        {/* Minimal City Chips */}
+        <div className="flex items-center gap-1.5 mt-3 flex-wrap text-xs">
+          <span className="text-[11px] text-gray-500 font-medium mr-1">Popular:</span>
+          {popularCities.map((city) => {
+            const isSelected = location.toLowerCase().includes(city.toLowerCase());
+            return (
+              <button
+                key={city}
+                type="button"
+                onClick={() => handleSelectPlace(`${city}, ${city === "Dubai" ? "UAE" : "India"}`)}
+                className={`px-3 py-1 rounded-full font-medium transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-amber-400 text-black font-bold shadow-md shadow-amber-400/20"
+                    : "ios-btn-glass text-gray-300 hover:text-white"
+                }`}
+              >
+                {city}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* ─── CALCULATOR CARD ─── */}
-      {prices && (
+      {/* ─────────────────────────────────────────────────────────────────
+          2. CLEAN SIDE-BY-SIDE GOLD & SILVER CARDS
+      ─────────────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* ─── GOLD CARD ─── */}
         <div
-          id="calculator-card"
-          className="glass-card p-6 sm:p-8 animate-slideUp"
-          style={{
-            borderColor: theme.borderCol,
-            boxShadow: `0 8px 40px ${theme.glowCol}`,
-          }}
+          onClick={() => setActiveTab && setActiveTab("gold")}
+          className={`ios-glass p-6 sm:p-7 cursor-pointer relative overflow-hidden transition-all duration-300 ${
+            isGold ? "ios-gold-card scale-[1.01]" : "hover:border-white/[0.2]"
+          }`}
         >
-          {/* Purity Selector */}
-          <div className="mb-7">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">
-              Purity
-            </label>
-            <div id="purity-selector" className={`grid gap-2.5 ${isGold ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}>
-              {purities.map((p, idx) => {
-                const isSelected = selectedPurity === idx;
-                return (
-                  <button
-                    key={p.label}
-                    id={`purity-${p.label}`}
-                    onClick={() => setSelectedPurity(idx)}
-                    className="relative p-3.5 rounded-2xl text-center transition-all duration-300 cursor-pointer glass-card-hover"
-                    style={{
-                      background: isSelected ? theme.bgCol : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${isSelected ? theme.borderCol : "rgba(255,255,255,0.05)"}`,
-                      boxShadow: isSelected ? `0 0 0 1px ${theme.accent}40` : "none",
-                    }}
-                  >
-                    <div
-                      className="text-lg font-extrabold"
-                      style={{ color: isSelected ? theme.accent : "#f5f5f7" }}
-                    >
-                      {p.label}
-                    </div>
-                    <div className="text-[11px] text-gray-500 mt-1 font-medium">{p.description}</div>
-                  </button>
-                );
-              })}
-              {isGold && (
-                <button
-                  key="Custom"
-                  id="purity-custom"
-                  onClick={() => setSelectedPurity("custom")}
-                  className="relative p-3.5 rounded-2xl text-center transition-all duration-300 cursor-pointer glass-card-hover"
-                  style={{
-                    background: selectedPurity === "custom" ? theme.bgCol : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${selectedPurity === "custom" ? theme.borderCol : "rgba(255,255,255,0.05)"}`,
-                    boxShadow: selectedPurity === "custom" ? `0 0 0 1px ${theme.accent}40` : "none",
-                  }}
-                >
-                  <div
-                    className="text-lg font-extrabold"
-                    style={{ color: selectedPurity === "custom" ? theme.accent : "#f5f5f7" }}
-                  >
-                    Custom
-                  </div>
-                  <div className="text-[11px] text-gray-500 mt-1 font-medium">Any Value</div>
-                </button>
-              )}
-            </div>
-
-            {selectedPurity === "custom" && isGold && (
-              <div className="mt-4 p-4 rounded-2xl animate-fadeIn" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                <div className="flex items-center justify-between mb-4">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    Custom Type
-                  </label>
-                  <div className="flex bg-gray-900/40 rounded-lg p-1 border border-gray-700/50">
-                    <button
-                      onClick={() => setCustomPurityType("karat")}
-                      className={`px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                        customPurityType === "karat" ? "bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "text-gray-500 hover:text-gray-300"
-                      }`}
-                    >
-                      Karat
-                    </button>
-                    <button
-                      onClick={() => setCustomPurityType("percentage")}
-                      className={`px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md transition-all ${
-                        customPurityType === "percentage" ? "bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]" : "text-gray-500 hover:text-gray-300"
-                      }`}
-                    >
-                      %
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative w-full text-left">
-                  <input
-                    type="number"
-                    min="0.1"
-                    max={customPurityType === "karat" ? "24" : "100"}
-                    step="0.01"
-                    placeholder={customPurityType === "karat" ? "E.g., 20.5" : "E.g., 91.6"}
-                    value={customPurityValue}
-                    onChange={(e) => setCustomPurityValue(e.target.value)}
-                    className={`w-full rounded-2xl px-4 py-3 text-white text-base font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
-                    style={{
-                      background: "rgba(255,255,255,0.04)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                    }}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">
-                    {customPurityType === "karat" ? "K" : "%"}
-                  </span>
-                </div>
-                {customPurityValue !== "" && validCustomPurity === null && (
-                  <p className="text-red-400 text-[11px] mt-2 ml-1">
-                    Please enter a valid {customPurityType === "karat" ? "Karat (up to 24)" : "Percentage (up to 100)"}.
-                  </p>
-                )}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🥇</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Gold 24K</h3>
+                <span className="text-xs text-gray-400 font-medium">99.9% Pure Hallmark</span>
               </div>
+            </div>
+            {isGold && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-400 text-black">
+                Active
+              </span>
             )}
           </div>
 
-          {/* Weight + Currency Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
-            {/* Weight */}
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="weight-input"
-                className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block"
-              >
-                Weight (grams)
-              </label>
-              <div className="relative">
-                <input
-                  id="weight-input"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Enter weight…"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  className={`w-full rounded-2xl px-4 py-3.5 text-white text-lg font-semibold placeholder-gray-600 outline-none transition-all duration-200 ${theme.focusRing}`}
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                  }}
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 text-sm font-bold">
-                  g
-                </span>
-              </div>
+          <div className="mb-4">
+            <div className="text-3xl sm:text-4xl font-black gradient-text-gold tracking-tight">
+              {formatCurrency(gold24k, "INR")}
             </div>
-
-            {/* Currency */}
-            <div>
-              <label
-                htmlFor="currency-select"
-                className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block"
-              >
-                Currency
-              </label>
-              <select
-                id="currency-select"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className={`w-full rounded-2xl px-4 py-3.5 text-white text-lg font-semibold outline-none transition-all duration-200 appearance-none cursor-pointer ${theme.focusRing}`}
-                style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code} style={{ background: "#0f0f17", color: "#fff" }}>
-                    {c.symbol} {c.code}
-                  </option>
-                ))}
-              </select>
+            <div className="text-xs text-gray-400 mt-1">
+              {formatCurrency(goldPerGram, "INR")} per gram
             </div>
           </div>
 
-          {/* Adjusted Price per Gram */}
-          <div
-            className="rounded-2xl p-4 mb-4 flex items-center justify-between"
-            style={{ background: theme.bgCol, border: `1px solid ${theme.borderCol}` }}
-          >
-            <span className="text-sm text-gray-400 font-medium">
-              {activePurityLabel} price per 10g
-            </span>
-            <span className={`text-lg font-bold ${theme.textClass}`}>
-              {formatCurrency(adjustedPricePer10g, currency)}
-            </span>
-          </div>
-
-          {/* Total Price Display */}
-          <div
-            id="total-price-display"
-            className="rounded-2xl p-[1.5px]"
-            style={{ background: theme.gradient }}
-          >
-            <div
-              className="rounded-2xl p-5 sm:p-6 flex items-center justify-between"
-              style={{ background: "#0a0a0f" }}
-            >
-              <div>
-                <div className="text-sm text-gray-400 font-semibold mb-0.5">Total Price</div>
-                <div className="text-xs text-gray-600">
-                  {activePurityLabel} × {weight || "0"}g
-                </div>
-              </div>
-              <div
-                className={`text-3xl sm:text-4xl font-extrabold ${theme.textClass} transition-all duration-300`}
-              >
-                {totalPrice > 0
-                  ? formatCurrency(totalPrice, currency)
-                  : `${currencyObj?.symbol || "₹"}0.00`}
-              </div>
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.08] text-xs">
+            <div className="bg-black/25 p-2.5 rounded-xl border border-white/[0.06]">
+              <div className="text-gray-400 text-[10px] uppercase font-bold">22K Hallmark</div>
+              <div className="text-sm font-bold text-white mt-0.5">{formatCurrency(gold22k, "INR")}</div>
+            </div>
+            <div className="bg-black/25 p-2.5 rounded-xl border border-white/[0.06]">
+              <div className="text-gray-400 text-[10px] uppercase font-bold">18K Jewelry</div>
+              <div className="text-sm font-bold text-white mt-0.5">{formatCurrency(gold18k, "INR")}</div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* ─── SILVER CARD ─── */}
+        <div
+          onClick={() => setActiveTab && setActiveTab("silver")}
+          className={`ios-glass p-6 sm:p-7 cursor-pointer relative overflow-hidden transition-all duration-300 ${
+            !isGold ? "ios-silver-card scale-[1.01]" : "hover:border-white/[0.2]"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🥈</span>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Silver 999</h3>
+                <span className="text-xs text-gray-400 font-medium">Fine Silver Bullion</span>
+              </div>
+            </div>
+            {!isGold && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-black">
+                Active
+              </span>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <div className="text-3xl sm:text-4xl font-black gradient-text-silver tracking-tight">
+              {formatCurrency(silver10g, "INR")}
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              {formatCurrency(silverPerGram, "INR")} per gram
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/[0.08] text-xs">
+            <div className="bg-black/25 p-2.5 rounded-xl border border-white/[0.06]">
+              <div className="text-gray-400 text-[10px] uppercase font-bold">1kg Bullion Bar</div>
+              <div className="text-sm font-bold text-white mt-0.5">{formatCurrency(silverKg, "INR")}</div>
+            </div>
+            <div className="bg-black/25 p-2.5 rounded-xl border border-white/[0.06]">
+              <div className="text-gray-400 text-[10px] uppercase font-bold">925 Sterling</div>
+              <div className="text-sm font-bold text-white mt-0.5">{formatCurrency(silver925, "INR")}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────
+          3. CLEAN PRECISION CALCULATOR
+      ─────────────────────────────────────────────────────────────────── */}
+      <div className="ios-glass p-6 sm:p-8">
+        <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{theme.emoji}</span>
+            <h2 className="text-lg font-bold text-white">
+              {theme.metalName} Calculator
+            </h2>
+          </div>
+
+          <div className="ios-segmented flex p-0.5">
+            <button
+              type="button"
+              onClick={() => setActiveTab && setActiveTab("gold")}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                isGold ? "bg-amber-400 text-black shadow" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Gold
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab && setActiveTab("silver")}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                !isGold ? "bg-slate-200 text-black shadow" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Silver
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Inputs */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Purity Selection */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-2.5">
+                Select Purity
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {purities.map((p, idx) => {
+                  const isSelected = selectedPurity === idx;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setSelectedPurity(idx)}
+                      className={`p-3 rounded-xl text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-white/[0.12] border border-amber-400/50 shadow-md text-white font-bold"
+                          : "ios-btn-glass text-gray-300"
+                      }`}
+                    >
+                      <div className="text-base font-extrabold" style={{ color: isSelected ? theme.accent : "#fff" }}>
+                        {p.label}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-0.5">{p.description}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Weight Input */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-2">
+                Weight (Grams)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter weight in grams…"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  className="ios-input w-full rounded-xl px-4 py-3 text-lg font-black text-white outline-none"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">
+                  Grams
+                </span>
+              </div>
+
+              {/* Weight Chips */}
+              <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+                {[1, 8, 10, 50, 100].map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setWeight(g.toString())}
+                    className="ios-btn-glass px-3 py-1 rounded-full text-xs font-semibold text-gray-300 hover:text-white cursor-pointer"
+                  >
+                    {g}g
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Clean Checkbox Options */}
+            <div className="flex items-center gap-6 pt-2 text-xs font-medium text-gray-300">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeGst}
+                  onChange={(e) => setIncludeGst(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                />
+                <span>Include 3% GST</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeMaking}
+                  onChange={(e) => setIncludeMaking(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500 cursor-pointer"
+                />
+                <span>Making Charges ({makingChargeValue}%)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Right Column: Total & Receipt */}
+          <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+            <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.1] shadow-inner space-y-3">
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>Purity:</span>
+                <span className="font-bold text-white">{activePurityLabel} {theme.metalName}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>Metal Value ({weight || 0}g):</span>
+                <span className="font-bold text-white">{formatCurrency(breakdown.baseMetal, currency)}</span>
+              </div>
+              {includeMaking && (
+                <div className="flex items-center justify-between text-xs text-amber-300">
+                  <span>Making ({makingChargeValue}%):</span>
+                  <span className="font-bold">+{formatCurrency(breakdown.makingCharges, currency)}</span>
+                </div>
+              )}
+              {includeGst && (
+                <div className="flex items-center justify-between text-xs text-gray-300">
+                  <span>GST (3%):</span>
+                  <span className="font-bold">+{formatCurrency(breakdown.gstAmount, currency)}</span>
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-white/[0.08]">
+                <div className="text-[11px] uppercase font-bold tracking-wider text-gray-400">Total Payable</div>
+                <div className={`text-3xl sm:text-4xl font-black ${theme.textClass} tracking-tight mt-0.5`}>
+                  {formatCurrency(breakdown.grandTotal, currency)}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {onNavigateToReceipt && (
+                <button
+                  type="button"
+                  onClick={onNavigateToReceipt}
+                  className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-emerald-400 to-emerald-500 text-black hover:opacity-95 shadow-md shadow-emerald-500/20 active:scale-[0.98] cursor-pointer"
+                >
+                  Generate Invoice / Receipt
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCopyQuote}
+                className="ios-btn-glass w-full py-2 rounded-xl text-xs font-semibold text-gray-300 hover:text-white cursor-pointer"
+              >
+                {copySuccess ? "✓ Copied!" : "Copy Summary Quote"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,70 +1,105 @@
 /**
  * Price Fallback Module
  * ---------------------
- * Wraps the Gemini API fetch with a graceful fallback mechanism.
- * If the API fails for any reason (network, invalid response, timeout, etc.)
- * the module returns sensible default prices so the UI and calculations
- * continue to work uninterrupted.
- *
- * All prices are stored as **per 10 grams**.
- * Default gold price (24K, per 10g, INR): ₹153,009
+ * Coordinates Gemini AI real-time price fetch with graceful city-aware fallback defaults.
+ * All base rates are stored per 10 grams in INR and USD.
  */
 
 import { fetchLivePrices } from "../gemini";
+import { BULLION_CITIES } from "./priceUtils";
 
-// ── Default prices (per 10 grams) ────────────────────────────────
+// ── Default 2026 realistic baseline prices (per 10 grams) ──────
 const DEFAULT_PRICES = Object.freeze({
   gold: {
-    INR: 153009,  // ₹153,009 per 10g
-    USD: 935,     // ~$935 per 10g
+    INR: 154750,      // ~₹1,54,750 per 10g (24K Pure)
+    INR_22k: 141850,  // ~₹1,41,850 per 10g (22K Hallmark 916)
+    INR_18k: 116060,  // ~₹1,16,060 per 10g (18K Jewelry 750)
+    INR_per_gram: 15475,
+    USD: 1613.2,      // ~$1,613 per 10g
   },
   silver: {
-    INR: 1000,    // ₹1,000 per 10g
-    USD: 11.5,    // ~$11.5 per 10g
+    INR: 2500,        // ~₹2,500 per 10g (999 Fine Silver)
+    INR_kg: 250000,   // ~₹2,50,000 per 1 kg
+    INR_925: 2312,    // ~₹2,312 per 10g (925 Sterling)
+    INR_per_gram: 250,
+    USD: 26.1,        // ~$26.1 per 10g
   },
+  ratio: 61.9,
+  source: "Market Benchmark Rates",
 });
 
 /**
- * Fetch live prices from the Gemini API with an automatic fallback.
- *
- * @returns {Promise<{
- *   gold:       { INR: number, USD: number },
- *   silver:     { INR: number, USD: number },
- *   fetchedAt:  string,
- *   isFallback: boolean,
- *   fallbackReason?: string
- * }>}
+ * Get realistic localized rates for any specific place
  */
-export async function fetchPricesWithFallback() {
-  try {
-    const data = await fetchLivePrices();
+function getCityAdjustedDefaults(location = "") {
+  const locLower = location.toLowerCase();
+  const matched = BULLION_CITIES.find(
+    (c) => locLower.includes(c.name.toLowerCase()) || locLower.includes(c.state.toLowerCase())
+  );
+  const variance = matched ? matched.varianceInr : 0;
 
-    // Extra guard: if the returned data is somehow empty / malformed
+  const baseGold = DEFAULT_PRICES.gold.INR + variance;
+  const baseSilver = DEFAULT_PRICES.silver.INR + Math.round(variance * 0.015);
+
+  return {
+    gold: {
+      INR: baseGold,
+      INR_22k: Math.round(baseGold * (22 / 24)),
+      INR_18k: Math.round(baseGold * (18 / 24)),
+      INR_per_gram: Math.round(baseGold / 10),
+      USD: DEFAULT_PRICES.gold.USD,
+    },
+    silver: {
+      INR: baseSilver,
+      INR_kg: baseSilver * 100,
+      INR_925: Math.round(baseSilver * 0.925),
+      INR_per_gram: Math.round((baseSilver / 10) * 10) / 10,
+      USD: DEFAULT_PRICES.silver.USD,
+    },
+    ratio: Math.round((baseGold / baseSilver) * 10) / 10,
+    source: matched
+      ? `${matched.name} Bullion Market Benchmark (${matched.hub})`
+      : "National Bullion Benchmark",
+  };
+}
+
+/**
+ * Fetch live prices from Gemini AI with automatic city-aware fallback.
+ */
+export async function fetchPricesWithFallback(
+  location = "India (National)",
+  date = new Date().toISOString().split("T")[0]
+) {
+  try {
+    const liveData = await fetchLivePrices(location, date);
+
     if (
-      !data ||
-      !data.gold ||
-      !data.silver ||
-      typeof data.gold.INR !== "number" ||
-      typeof data.silver.INR !== "number"
+      !liveData ||
+      !liveData.gold ||
+      !liveData.silver ||
+      typeof liveData.gold.INR !== "number" ||
+      typeof liveData.silver.INR !== "number"
     ) {
-      throw new Error("API returned an incomplete price payload.");
+      throw new Error("Incomplete price payload received.");
     }
 
     return {
-      ...data,
+      ...liveData,
       isFallback: false,
     };
   } catch (error) {
     const reason = error?.message || "Unknown error";
+    console.warn(`⚠️ [PriceFallback] Real-time fetch failed for "${location}" — using city benchmark: ${reason}`);
 
-    // ── Log the fallback event ──────────────────────────────────
-    console.warn(
-      `⚠️ [PriceFallback] API fetch failed — using default prices.\n   Reason: ${reason}`
-    );
+    const cityDefaults = getCityAdjustedDefaults(location);
 
     return {
-      gold: { ...DEFAULT_PRICES.gold },
-      silver: { ...DEFAULT_PRICES.silver },
+      gold: { ...cityDefaults.gold },
+      silver: { ...cityDefaults.silver },
+      ratio: cityDefaults.ratio,
+      source: cityDefaults.source,
+      location: location || "India (National)",
+      date: date || new Date().toISOString().split("T")[0],
       fetchedAt: new Date().toISOString(),
       isFallback: true,
       fallbackReason: reason,
@@ -74,11 +109,11 @@ export async function fetchPricesWithFallback() {
 
 /**
  * Returns a copy of the default prices object.
- * Useful if other modules need access to the fallback values directly.
  */
 export function getDefaultPrices() {
   return {
     gold: { ...DEFAULT_PRICES.gold },
     silver: { ...DEFAULT_PRICES.silver },
+    ratio: DEFAULT_PRICES.ratio,
   };
 }
