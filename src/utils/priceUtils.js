@@ -168,7 +168,7 @@ export function formatCurrency(amount, currencyCode = "INR") {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(num);
-  } catch (e) {
+  } catch {
     const symbol = CURRENCIES.find((c) => c.code === currencyCode)?.symbol || "₹";
     return `${symbol}${num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }

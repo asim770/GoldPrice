@@ -67,7 +67,7 @@ function parsePricePayload(rawText, location) {
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     try {
       parsed = JSON.parse(cleaned.substring(firstBrace, lastBrace + 1));
-    } catch (e) {
+    } catch {
       parsed = null;
     }
   }

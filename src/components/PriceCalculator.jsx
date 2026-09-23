@@ -26,12 +26,12 @@ export default function PriceCalculator({
   // ── Calculator State ──────────────────────────────────
   const [selectedPurity, setSelectedPurity] = useState(0);
   const [weight, setWeight]                 = useState("10"); // Default 10g / 1 Tola
-  const [currency, setCurrency]             = useState("INR");
+  const [currency]                          = useState("INR");
 
   // Optional GST and Making Charges
-  const [includeGst, setIncludeGst]               = useState(true);
-  const [includeMaking, setIncludeMaking]         = useState(false);
-  const [makingChargeValue, setMakingChargeValue] = useState("10"); // 10% default
+  const [includeGst, setIncludeGst]         = useState(true);
+  const [includeMaking, setIncludeMaking]   = useState(false);
+  const [makingChargeValue]                 = useState("10"); // 10% default
 
   // ── Place Search State ────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -154,14 +154,14 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
       };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+    <div className="w-full max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* ─────────────────────────────────────────────────────────────────
           1. CLEAN PLACE SEARCH BAR & CITY CHIPS
       ─────────────────────────────────────────────────────────────────── */}
-      <div className="ios-glass p-5 sm:p-6 relative">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse-live" />
+      <div className="ios-glass p-4 sm:p-6 relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse-live shrink-0" />
             <span className="text-sm font-bold text-white tracking-tight">
               {location}
             </span>
@@ -175,7 +175,7 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
             <button
               onClick={() => onRefresh(location, date)}
               disabled={loading}
-              className="ios-btn-glass px-3 py-1 rounded-full text-xs font-semibold text-gray-300 hover:text-white flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+              className="ios-btn-glass px-3 py-1.5 rounded-full text-xs font-semibold text-gray-300 hover:text-white flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
             >
               <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-400" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -188,7 +188,7 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
         {/* Clean Search Input */}
         <div className="relative">
           <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-            <span className="absolute left-4 text-gray-400 pointer-events-none">
+            <span className="absolute left-3.5 sm:left-4 text-gray-400 pointer-events-none">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -204,13 +204,13 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
                 setIsSearching(true);
               }}
               placeholder="Search place (e.g. Kolkata, Jaipur, Delhi, Surat, Dubai)..."
-              className="ios-input w-full rounded-full pl-11 pr-24 py-3 text-sm text-white placeholder-gray-500 outline-none transition-all"
+              className="ios-input w-full rounded-full pl-10 sm:pl-11 pr-20 sm:pr-24 py-2.5 sm:py-3 text-xs sm:text-sm text-white placeholder-gray-500 outline-none transition-all"
             />
 
             <button
               type="submit"
               disabled={loading}
-              className="absolute right-1.5 ios-btn-primary px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider cursor-pointer"
+              className="absolute right-1.5 ios-btn-primary px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-bold uppercase tracking-wider cursor-pointer"
             >
               {loading ? "…" : "Search"}
             </button>
@@ -355,11 +355,11 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
       {/* ─────────────────────────────────────────────────────────────────
           3. CLEAN PRECISION CALCULATOR
       ─────────────────────────────────────────────────────────────────── */}
-      <div className="ios-glass p-6 sm:p-8">
-        <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/[0.08]">
+      <div className="ios-glass p-4 sm:p-8">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 mb-4 sm:mb-6 border-b border-white/[0.08]">
           <div className="flex items-center gap-2">
-            <span className="text-xl">{theme.emoji}</span>
-            <h2 className="text-lg font-bold text-white">
+            <span className="text-lg sm:text-xl">{theme.emoji}</span>
+            <h2 className="text-base sm:text-lg font-bold text-white">
               {theme.metalName} Calculator
             </h2>
           </div>
@@ -386,12 +386,12 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-8">
           {/* Left Column: Inputs */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
             {/* Purity Selection */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-2.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-2 sm:mb-2.5">
                 Select Purity
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -402,13 +402,13 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
                       key={p.label}
                       type="button"
                       onClick={() => setSelectedPurity(idx)}
-                      className={`p-3 rounded-xl text-center transition-all cursor-pointer ${
+                      className={`p-2.5 sm:p-3 rounded-xl text-center transition-all cursor-pointer ${
                         isSelected
                           ? "bg-white/[0.12] border border-amber-400/50 shadow-md text-white font-bold"
                           : "ios-btn-glass text-gray-300"
                       }`}
                     >
-                      <div className="text-base font-extrabold" style={{ color: isSelected ? theme.accent : "#fff" }}>
+                      <div className="text-sm sm:text-base font-extrabold" style={{ color: isSelected ? theme.accent : "#fff" }}>
                         {p.label}
                       </div>
                       <div className="text-[10px] text-gray-400 mt-0.5">{p.description}</div>
@@ -431,9 +431,9 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
                   placeholder="Enter weight in grams…"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="ios-input w-full rounded-xl px-4 py-3 text-lg font-black text-white outline-none"
+                  className="ios-input w-full rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-base sm:text-lg font-black text-white outline-none"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm font-bold">
                   Grams
                 </span>
               </div>
@@ -445,7 +445,7 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
                     key={g}
                     type="button"
                     onClick={() => setWeight(g.toString())}
-                    className="ios-btn-glass px-3 py-1 rounded-full text-xs font-semibold text-gray-300 hover:text-white cursor-pointer"
+                    className="ios-btn-glass px-3 py-1.5 min-h-[34px] rounded-full text-xs font-semibold text-gray-300 hover:text-white cursor-pointer"
                   >
                     {g}g
                   </button>
@@ -454,8 +454,8 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
             </div>
 
             {/* Clean Checkbox Options */}
-            <div className="flex items-center gap-6 pt-2 text-xs font-medium text-gray-300">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-1 text-xs font-medium text-gray-300">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeGst}
@@ -465,7 +465,7 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
                 <span>Include 3% GST</span>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeMaking}
@@ -479,7 +479,7 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
 
           {/* Right Column: Total & Receipt */}
           <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
-            <div className="p-6 rounded-2xl bg-black/40 border border-white/[0.1] shadow-inner space-y-3">
+            <div className="p-4 sm:p-6 rounded-2xl bg-black/40 border border-white/[0.1] shadow-inner space-y-3">
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>Purity:</span>
                 <span className="font-bold text-white">{activePurityLabel} {theme.metalName}</span>
@@ -502,8 +502,8 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
               )}
 
               <div className="pt-3 border-t border-white/[0.08]">
-                <div className="text-[11px] uppercase font-bold tracking-wider text-gray-400">Total Payable</div>
-                <div className={`text-3xl sm:text-4xl font-black ${theme.textClass} tracking-tight mt-0.5`}>
+                <div className="text-[10px] sm:text-[11px] uppercase font-bold tracking-wider text-gray-400">Total Payable</div>
+                <div className={`text-2xl sm:text-3xl lg:text-4xl font-black ${theme.textClass} tracking-tight mt-0.5 break-words`}>
                   {formatCurrency(breakdown.grandTotal, currency)}
                 </div>
               </div>
@@ -514,16 +514,16 @@ ${includeGst ? `GST (3%): ${formatCurrency(breakdown.gstAmount, currency)}\n` : 
                 <button
                   type="button"
                   onClick={onNavigateToReceipt}
-                  className="w-full py-3 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-emerald-400 to-emerald-500 text-black hover:opacity-95 shadow-md shadow-emerald-500/20 active:scale-[0.98] cursor-pointer"
+                  className="w-full py-3.5 sm:py-3 min-h-[46px] rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-emerald-400 to-emerald-500 text-black hover:opacity-95 shadow-md shadow-emerald-500/20 active:scale-[0.98] cursor-pointer"
                 >
-                  Generate Invoice / Receipt
+                  Generate Invoice / Report / Receipt
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={handleCopyQuote}
-                className="ios-btn-glass w-full py-2 rounded-xl text-xs font-semibold text-gray-300 hover:text-white cursor-pointer"
+                className="ios-btn-glass w-full py-2.5 sm:py-2 min-h-[40px] rounded-xl text-xs font-semibold text-gray-300 hover:text-white cursor-pointer"
               >
                 {copySuccess ? "✓ Copied!" : "Copy Summary Quote"}
               </button>

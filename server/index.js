@@ -36,7 +36,7 @@ function getReceipts() {
   try {
     const raw = fs.readFileSync(DATA_FILE, "utf8");
     return JSON.parse(raw);
-  } catch (err) {
+  } catch {
     return [];
   }
 }
@@ -105,9 +105,12 @@ app.post("/api/receipts", (req, res) => {
     const filename = `${id}.pdf`;
     const filePath = path.join(UPLOADS_DIR, filename);
 
-    // Save PDF file
-    const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, "");
-    fs.writeFileSync(filePath, Buffer.from(base64Data, "base64"));
+    // Save PDF file — extract pure base64 payload irrespective of data-uri prefix
+    const base64Data = pdfBase64.includes(",")
+      ? pdfBase64.substring(pdfBase64.indexOf(",") + 1)
+      : pdfBase64;
+    const pdfBuffer = Buffer.from(base64Data, "base64");
+    fs.writeFileSync(filePath, pdfBuffer);
 
     const now = Date.now();
     const expiresAt = now + ONE_DAY_MS;
@@ -223,6 +226,11 @@ app.get("/api/receipts/:id/pdf", (req, res) => {
     return res.status(404).send("PDF file not found");
   }
 
+  // If download query param is present, force attachment download
+  if (req.query.download === "1" || req.query.download === "true") {
+    return res.download(filePath, `${receipt.receiptNumber}.pdf`);
+  }
+
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="${receipt.receiptNumber}.pdf"`);
   fs.createReadStream(filePath).pipe(res);
@@ -266,45 +274,190 @@ app.get("/api/receipts/:id/view", (req, res) => {
 
   res.send(`
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-      <title>Receipt ${receipt.receiptNumber}</title>
+      <meta charset="UTF-8">
+      <title>Tax Invoice ${receipt.receiptNumber} — ${receipt.storeName}</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
       <style>
-        body { background: #06060b; color: #f5f5f7; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .header { background: #12121e; border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 20px; padding: 24px; margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
-        .title { font-size: 20px; font-weight: bold; color: #fff; }
-        .meta { color: #9ca3af; font-size: 13px; margin-top: 4px; }
-        .timer-box { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 10px 18px; border-radius: 14px; text-align: right; }
-        .timer-label { font-size: 11px; text-transform: uppercase; color: #fbbf24; font-weight: bold; letter-spacing: 0.5px; }
-        .timer-value { font-size: 18px; font-weight: 800; color: #fcd34d; font-mono: monospace; margin-top: 2px; }
-        .actions { display: flex; gap: 10px; margin-bottom: 20px; }
-        .btn { background: #f59e0b; color: #000; font-weight: bold; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; transition: opacity 0.2s; }
-        .btn:hover { opacity: 0.9; }
-        .pdf-frame { width: 100%; height: 75vh; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; background: #181824; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          background: #04060a;
+          color: #f3f4f6;
+          font-family: 'Inter', -apple-system, sans-serif;
+          min-height: 100vh;
+          padding: 24px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .container {
+          width: 100%;
+          max-width: 920px;
+        }
+        .header-card {
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
+          backdrop-filter: blur(40px);
+          -webkit-backdrop-filter: blur(40px);
+          border: 1px solid rgba(212, 175, 55, 0.25);
+          border-radius: 20px;
+          padding: 24px 28px;
+          margin-bottom: 20px;
+          box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.6), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+          align-items: center;
+          gap: 18px;
+        }
+        .crest-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .crest {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(184, 134, 11, 0.3));
+          border: 1.5px solid #d4af37;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          color: #fbbf24;
+          box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25);
+        }
+        .title {
+          font-family: 'Cinzel', serif;
+          font-size: 20px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          color: #ffffff;
+        }
+        .meta {
+          color: #9ca3af;
+          font-size: 13px;
+          margin-top: 3px;
+          font-family: 'Outfit', sans-serif;
+        }
+        .meta strong {
+          color: #e5e7eb;
+        }
+        .timer-box {
+          background: rgba(245, 158, 11, 0.08);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          padding: 10px 18px;
+          border-radius: 14px;
+          text-align: right;
+          box-shadow: 0 4px 16px rgba(245, 158, 11, 0.08);
+        }
+        .timer-label {
+          font-size: 10px;
+          text-transform: uppercase;
+          color: #fbbf24;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          font-family: 'Outfit', sans-serif;
+        }
+        .timer-value {
+          font-size: 19px;
+          font-weight: 800;
+          color: #fef08a;
+          font-family: monospace;
+          margin-top: 2px;
+          letter-spacing: 0.05em;
+        }
+        .actions-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .badge-verified {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(16, 185, 129, 0.12);
+          border: 1px solid rgba(16, 185, 129, 0.3);
+          color: #34d399;
+          padding: 6px 14px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          font-family: 'Outfit', sans-serif;
+        }
+        .btn-download {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: #000;
+          font-weight: 800;
+          padding: 10px 22px;
+          border-radius: 12px;
+          text-decoration: none;
+          font-size: 13.5px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.25s ease;
+          box-shadow: 0 4px 18px rgba(245, 158, 11, 0.35);
+          font-family: 'Outfit', sans-serif;
+        }
+        .btn-download:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 24px rgba(245, 158, 11, 0.5);
+          opacity: 0.95;
+        }
+        .pdf-frame {
+          width: 100%;
+          height: 80vh;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 18px;
+          background: #111420;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+        }
+        .footer-note {
+          text-align: center;
+          color: #6b7280;
+          font-size: 11px;
+          margin-top: 20px;
+        }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <div>
-            <div class="title">📄 Receipt: ${receipt.receiptNumber}</div>
-            <div class="meta">Customer: ${receipt.customerName} &bull; ${receipt.storeName}</div>
+        <div class="header-card">
+          <div class="crest-title-wrap">
+            <div class="crest">✦</div>
+            <div>
+              <div class="title">${receipt.receiptNumber}</div>
+              <div class="meta">Client: <strong>${receipt.customerName}</strong> &bull; ${receipt.storeName}</div>
+            </div>
           </div>
           <div class="timer-box">
-            <div class="timer-label">⏳ Valid for 1 Day Only</div>
+            <div class="timer-label">⏱️ Cloud Link Expiry</div>
             <div class="timer-value" id="countdown">Calculating…</div>
           </div>
         </div>
 
-        <div class="actions">
-          <a href="${baseUrl}/api/receipts/${receipt.id}/pdf" download="${receipt.receiptNumber}.pdf" class="btn">
-            ⬇️ Download PDF
+        <div class="actions-bar">
+          <div class="badge-verified">
+            ✓ Official Bullion Tax Invoice & Appraisal
+          </div>
+          <a href="${baseUrl}/api/receipts/${receipt.id}/pdf?download=1" class="btn-download">
+            ⬇️ Download Official PDF
           </a>
         </div>
 
         <iframe src="${baseUrl}/api/receipts/${receipt.id}/pdf" class="pdf-frame"></iframe>
+
+        <div class="footer-note">
+          BullionDesk Pro &bull; Generated & Encrypted Document with 24-Hour Temporary Cloud Hosting
+        </div>
       </div>
 
       <script>

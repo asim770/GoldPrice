@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "id": "rcp_lw7g34n2",
+    "receiptNumber": "RCP-20260924-P4AZ",
+    "customerName": "Asim Maji",
+    "storeName": "Alok Jwellers",
+    "totalAmount": 340450,
+    "currency": "INR",
+    "itemCount": 1,
+    "createdAt": 1790190684689,
+    "expiresAt": 1790277084689,
+    "filename": "rcp_lw7g34n2.pdf"
+  },
+  {
+    "id": "rcp_in12dpoc",
+    "receiptNumber": "RCP-20260924-WCOG",
+    "customerName": "Asim Maji",
+    "storeName": "Alok Jwellers",
+    "totalAmount": 340450,
+    "currency": "INR",
+    "itemCount": 1,
+    "createdAt": 1790190664971,
+    "expiresAt": 1790277064971,
+    "filename": "rcp_in12dpoc.pdf"
+  },
+  {
+    "id": "rcp_nsu2frkx",
+    "receiptNumber": "RCP-20260924-LA49",
+    "customerName": "Ananya Deshmukh",
+    "storeName": "Tanishq Heritage Fine Jewellery",
+    "totalAmount": 1007316.5527337498,
+    "currency": "INR",
+    "itemCount": 3,
+    "createdAt": 1790190416409,
+    "expiresAt": 1790276816409,
+    "filename": "rcp_nsu2frkx.pdf"
+  },
+  {
+    "id": "rcp_qbmuuj98",
+    "receiptNumber": "RCP-20260924-7CA0",
+    "customerName": "Ananya Deshmukh",
+    "storeName": "Tanishq Heritage Fine Jewellery",
+    "totalAmount": 1007316.5527337498,
+    "currency": "INR",
+    "itemCount": 3,
+    "createdAt": 1790190366359,
+    "expiresAt": 1790276766359,
+    "filename": "rcp_qbmuuj98.pdf"
+  },
+  {
+    "id": "rcp_xwplmcyx",
+    "receiptNumber": "RCP-20260924-OHMG",
+    "customerName": "Ananya Deshmukh",
+    "storeName": "Tanishq Heritage Fine Jewellery",
+    "totalAmount": 1007316.5527337498,
+    "currency": "INR",
+    "itemCount": 3,
+    "createdAt": 1790190295039,
+    "expiresAt": 1790276695039,
+    "filename": "rcp_xwplmcyx.pdf"
+  },
+  {
+    "id": "rcp_3sp86q3i",
+    "receiptNumber": "RCP-20260924-QUJT",
+    "customerName": "Ananya Deshmukh",
+    "storeName": "Tanishq Heritage Fine Jewellery",
+    "totalAmount": 971515.3182262499,
+    "currency": "INR",
+    "itemCount": 3,
+    "createdAt": 1790189941864,
+    "expiresAt": 1790276341864,
+    "filename": "rcp_3sp86q3i.pdf"
+  }
+]

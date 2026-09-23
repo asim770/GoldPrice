@@ -9,31 +9,37 @@ import { jsPDF } from "jspdf";
 
 // ── Colour palette ─────────────────────────────────────────────
 const C = {
-  black:      [20, 20, 25],
-  dark:       [45, 45, 55],
-  body:       [60, 60, 70],
-  gray:       [130, 130, 140],
-  lightGray:  [200, 200, 210],
+  black: [20, 20, 25],
+  dark: [45, 45, 55],
+  body: [60, 60, 70],
+  gray: [130, 130, 140],
+  lightGray: [200, 200, 210],
   ultraLight: [240, 238, 230],
-  cream:      [252, 250, 244],
-  white:      [255, 255, 255],
-  gold:       [180, 140, 20],
-  goldDark:   [140, 105, 18],
-  goldLight:  [220, 185, 70],
+  cream: [252, 250, 244],
+  white: [255, 255, 255],
+  gold: [180, 140, 20],
+  goldDark: [140, 105, 18],
+  goldLight: [220, 185, 70],
   goldAccent: [245, 200, 80],
-  emerald:    [16, 150, 100],
-  red:        [200, 50, 50],
+  emerald: [16, 150, 100],
+  red: [200, 50, 50],
 };
 
 /**
- * Format a number as a currency string.
+ * Format a number as a currency string safe for standard PDF fonts.
  */
-function fmt(amount, symbol = "₹") {
+function fmt(amount, symbol = "Rs. ") {
+  let displaySymbol = symbol;
+  if (!displaySymbol || displaySymbol === "₹") {
+    displaySymbol = "Rs. ";
+  } else {
+    displaySymbol = `${displaySymbol} `;
+  }
   const formatted = Math.abs(amount).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return `${symbol}${formatted}`;
+  return `${displaySymbol}${formatted}`;
 }
 
 /**
@@ -189,8 +195,8 @@ export function generateReceiptPDF(data) {
   doc.setTextColor(...C.gray);
 
   const leftMeta = [
-    ["Receipt No:", data.receiptNumber || "—"],
-    ["Date & Time:", data.dateTime || "—"],
+    ["Receipt No:", data.receiptNumber || "-"],
+    ["Date & Time:", data.dateTime || "-"],
     ["Mode:", data.mode === "cash" ? "Cash Mode" : "Gold Mode"],
   ];
 
@@ -235,22 +241,22 @@ export function generateReceiptPDF(data) {
   // Column definitions
   const cols = data.mode === "cash"
     ? [
-        { label: "Sr.",      x: contentLeft,     w: 12,  align: "left" },
-        { label: "Item",     x: contentLeft + 12, w: 58,  align: "left" },
-        { label: "Wt (g)",   x: contentLeft + 70, w: 22,  align: "right" },
-        { label: "Purity",   x: contentLeft + 92, w: 22,  align: "center" },
-        { label: "Rate/g",   x: contentLeft + 114, w: 28, align: "right" },
-        { label: "Amount",   x: contentLeft + 142, w: 28, align: "right" },
-      ]
+      { label: "Sr.", x: contentLeft, w: 12, align: "left" },
+      { label: "Item", x: contentLeft + 12, w: 58, align: "left" },
+      { label: "Wt (g)", x: contentLeft + 70, w: 22, align: "right" },
+      { label: "Purity", x: contentLeft + 92, w: 22, align: "center" },
+      { label: "Rate/g", x: contentLeft + 114, w: 28, align: "right" },
+      { label: "Amount", x: contentLeft + 142, w: 28, align: "right" },
+    ]
     : [
-        { label: "Sr.",       x: contentLeft,      w: 12,  align: "left" },
-        { label: "Item",      x: contentLeft + 12, w: 48,  align: "left" },
-        { label: "Wt (g)",    x: contentLeft + 60, w: 20,  align: "right" },
-        { label: "Purity",    x: contentLeft + 80, w: 20,  align: "center" },
-        { label: "Pure Wt",   x: contentLeft + 100, w: 22, align: "right" },
-        { label: "Rate/g",    x: contentLeft + 122, w: 24, align: "right" },
-        { label: "Value",     x: contentLeft + 146, w: 24, align: "right" },
-      ];
+      { label: "Sr.", x: contentLeft, w: 12, align: "left" },
+      { label: "Item", x: contentLeft + 12, w: 48, align: "left" },
+      { label: "Wt (g)", x: contentLeft + 60, w: 20, align: "right" },
+      { label: "Purity", x: contentLeft + 80, w: 20, align: "center" },
+      { label: "Pure Wt", x: contentLeft + 100, w: 22, align: "right" },
+      { label: "Rate/g", x: contentLeft + 122, w: 24, align: "right" },
+      { label: "Value", x: contentLeft + 146, w: 24, align: "right" },
+    ];
 
   // Table header background
   doc.setFillColor(...C.gold);
@@ -295,10 +301,10 @@ export function generateReceiptPDF(data) {
 
     // Item name
     doc.setFont("helvetica", "bold");
-    const itemName = item.name || "—";
+    const itemName = item.name || "-";
     const maxNameWidth = cols[1].w - 2;
     const truncatedName = doc.getTextWidth(itemName) > maxNameWidth
-      ? itemName.substring(0, Math.floor(itemName.length * maxNameWidth / doc.getTextWidth(itemName))) + "…"
+      ? itemName.substring(0, Math.floor(itemName.length * maxNameWidth / doc.getTextWidth(itemName))) + "..."
       : itemName;
     doc.text(truncatedName, cols[1].x + 1, y + 2);
 
@@ -483,12 +489,26 @@ export function generateReceiptPDF(data) {
 
   // ── DOWNLOAD & BASE64 ─────────────────────────────────────────
   const timestamp = new Date().toISOString().slice(0, 10);
-  const safeName = data.storeName?.replace(/\s+/g, "_") || "Shop";
+  const safeName = (data.storeName || "Shop").replace(/[^a-zA-Z0-9_-]/g, "_");
   const filename = `Receipt_${safeName}_${data.receiptNumber || timestamp}.pdf`;
-  doc.save(filename);
-  const pdfBase64 = doc.output("datauristring");
 
-  return { doc, filename, pdfBase64 };
+  // Use doc.save() for native browser download
+  try {
+    doc.save(filename);
+  } catch (err) {
+    console.warn("doc.save() failed:", err);
+  }
+
+  const pdfBase64 = doc.output("datauristring");
+  let pdfBlobUrl = null;
+  try {
+    const blob = doc.output("blob");
+    pdfBlobUrl = URL.createObjectURL(blob);
+  } catch (e) {
+    console.warn("Blob URL generation failed:", e);
+  }
+
+  return { doc, filename, pdfBase64, pdfBlobUrl };
 }
 
 // ── Number to Words (Indian system) ────────────────────────────

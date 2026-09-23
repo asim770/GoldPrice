@@ -124,7 +124,7 @@ function App() {
         />
 
         {/* Content with top padding so fixed navbar never obstructs cards */}
-        <main className="flex-1 pt-20 sm:pt-24 pb-10">
+        <main className="flex-1 pt-[calc(max(0.5rem,env(safe-area-inset-top))+3.5rem)] sm:pt-24 pb-8 sm:pb-10">
           {activePage === "calculator" ? (
             <PriceCalculator
               activeTab={activeTab}
