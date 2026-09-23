@@ -25,4 +25,15 @@ dist-ssr
 
 .env
 node_modules
-.env
+
+# Mobile Build Outputs & Signing Credentials (DO NOT COMMIT)
+*.keystore
+*.jks
+keystore.properties
+*.ipa
+*.apk
+*.aab
+android/.gradle
+android/build
+android/app/build
+ios/DerivedData

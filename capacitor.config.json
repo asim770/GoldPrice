@@ -1,0 +1,9 @@
+{
+  "appId": "com.bulliondesk.app",
+  "appName": "BullionDesk",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
