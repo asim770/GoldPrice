@@ -6,6 +6,9 @@
  */
 
 import { jsPDF } from "jspdf";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
 
 // ── Colour palette ─────────────────────────────────────────────
 const C = {
@@ -492,13 +495,6 @@ export function generateReceiptPDF(data) {
   const safeName = (data.storeName || "Shop").replace(/[^a-zA-Z0-9_-]/g, "_");
   const filename = `Receipt_${safeName}_${data.receiptNumber || timestamp}.pdf`;
 
-  // Use doc.save() for native browser download
-  try {
-    doc.save(filename);
-  } catch (err) {
-    console.warn("doc.save() failed:", err);
-  }
-
   const pdfBase64 = doc.output("datauristring");
   let pdfBlobUrl = null;
   try {
@@ -509,6 +505,72 @@ export function generateReceiptPDF(data) {
   }
 
   return { doc, filename, pdfBase64, pdfBlobUrl };
+}
+
+/**
+ * Save or Share PDF across native mobile (Capacitor Android/iOS) and web browser.
+ */
+export async function saveReceiptPDF({ doc, filename, pdfBase64, pdfBlobUrl }) {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const base64Data = pdfBase64 && pdfBase64.includes(",")
+        ? pdfBase64.substring(pdfBase64.indexOf(",") + 1)
+        : pdfBase64;
+
+      if (!base64Data) {
+        throw new Error("Missing PDF base64 data");
+      }
+
+      // 1. Write file to Cache directory (accessible to FileProvider)
+      const cacheResult = await Filesystem.writeFile({
+        path: filename,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+
+      // 2. Also write to Documents directory so it persists in device storage
+      try {
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Documents,
+        });
+      } catch (docErr) {
+        console.warn("Documents write fallback:", docErr);
+      }
+
+      // 3. Open Android Native Share / Save sheet
+      // Allows user to Save to Downloads, Drive, WhatsApp, PDF Viewer, etc.
+      await Share.share({
+        title: filename,
+        text: `BullionDesk Tax Invoice: ${filename}`,
+        url: cacheResult.uri,
+        dialogTitle: "Save or Share Invoice PDF",
+      });
+
+      return { success: true, native: true, uri: cacheResult.uri };
+    } catch (nativeErr) {
+      console.error("Native save/share error:", nativeErr);
+    }
+  }
+
+  // Web Browser fallback
+  try {
+    if (doc) {
+      doc.save(filename);
+    } else if (pdfBlobUrl) {
+      const link = document.createElement("a");
+      link.href = pdfBlobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+    return { success: true, native: false };
+  } catch (webErr) {
+    console.warn("Web save fallback failed:", webErr);
+    return { success: false, error: webErr };
+  }
 }
 
 // ── Number to Words (Indian system) ────────────────────────────

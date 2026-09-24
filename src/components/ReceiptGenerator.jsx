@@ -5,7 +5,7 @@ import {
   calculatePrice,
   formatCurrency,
 } from "../utils/priceUtils";
-import { generateReceiptPDF } from "../utils/receiptPdf";
+import { generateReceiptPDF, saveReceiptPDF } from "../utils/receiptPdf";
 import "./ReceiptGenerator.css";
 
 /**
@@ -67,6 +67,7 @@ export default function ReceiptGenerator({ prices, isFallback }) {
   const [submitted, setSubmitted] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [lastBlobUrl, setLastBlobUrl] = useState(null);
+  const [lastPdfResult, setLastPdfResult] = useState(null);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
 
   // ── Receipt Number ───────────────────────────────────
@@ -295,10 +296,20 @@ export default function ReceiptGenerator({ prices, isFallback }) {
       dateTime,
     });
 
-    if (pdfResult && pdfResult.pdfBlobUrl) {
-      setLastBlobUrl(pdfResult.pdfBlobUrl);
+    if (pdfResult) {
+      setLastPdfResult(pdfResult);
+      if (pdfResult.pdfBlobUrl) {
+        setLastBlobUrl(pdfResult.pdfBlobUrl);
+      }
       setDownloadSuccess(true);
       setTimeout(() => setDownloadSuccess(false), 5000);
+
+      // Save/share file (handles native Android/iOS APK and web browser)
+      try {
+        await saveReceiptPDF(pdfResult);
+      } catch (saveErr) {
+        console.warn("saveReceiptPDF failed:", saveErr);
+      }
     }
 
     // 2. Upload to Backend for 1-Day Storage
@@ -444,14 +455,19 @@ ${computedItems.map((i, idx) => `${idx + 1}. ${i.name || "Item"} — ${i.weightN
               >
                 {copiedLink ? "✓ Copied" : "Copy Link"}
               </button>
-              <a
-                href={`${serverReceipt.pdfUrl}?download=1`}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition-colors shrink-0 flex items-center gap-1.5"
+              <button
+                type="button"
+                onClick={async () => {
+                  if (lastPdfResult) {
+                    await saveReceiptPDF(lastPdfResult);
+                  } else {
+                    window.open(`${serverReceipt.pdfUrl}?download=1`, "_blank");
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer"
               >
                 <span>⬇️</span> Download PDF
-              </a>
+              </button>
               {lastBlobUrl && (
                 <button
                   type="button"
@@ -1144,7 +1160,13 @@ ${computedItems.map((i, idx) => `${idx + 1}. ${i.name || "Item"} — ${i.weightN
             <div className="report-action-bar">
               <button
                 type="button"
-                onClick={handleGenerate}
+                onClick={async () => {
+                  if (lastPdfResult) {
+                    await saveReceiptPDF(lastPdfResult);
+                  } else {
+                    handleGenerate();
+                  }
+                }}
                 disabled={isUploading}
                 className="report-btn-secondary"
                 title="Download PDF"
